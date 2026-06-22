@@ -8,7 +8,7 @@ Navigability: `get_summary` → `repository.summary()` → the `select()` → `O
 """
 
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.repositories.sales_repository import (
     BreakdownDimension,
@@ -18,7 +18,9 @@ from app.repositories.sales_repository import (
 )
 from app.schemas.analytics import KpiDelta, SummaryResponse
 from app.schemas.breakdowns import BreakdownItem, BreakdownResponse
+from app.schemas.common import Page
 from app.schemas.filters import AnalyticsFilters
+from app.schemas.products import ProductCard, ProductDetail, ProductQuery, VariantItem
 from app.schemas.trends import TrendPointOut, TrendResponse
 
 
@@ -42,8 +44,8 @@ class AnalyticsService:
             net_revenue=float(current.net_revenue),
             gross_sales=float(current.gross_sales),
             returns_value=float(current.returns_value),
-            units_sold=int(current.units_sold),
-            units_returned=int(current.units_returned),
+            units_sold=_to_units(current.units_sold),
+            units_returned=_to_units(current.units_returned),
             invoices=current.invoices,
             customers=current.customers,
             discount_rate=_discount_rate(current),
@@ -57,7 +59,12 @@ class AnalyticsService:
         points = await self.repository.revenue_trend(cur_from, cur_to, bucket)
         return TrendResponse(
             bucket=bucket,
-            points=[TrendPointOut.model_validate(p) for p in points],
+            points=[
+                TrendPointOut(
+                    bucket=p.bucket, net_revenue=float(p.net_revenue), units=_to_units(p.units)
+                )
+                for p in points
+            ],
         )
 
     async def get_breakdown(
@@ -72,12 +79,64 @@ class AnalyticsService:
             BreakdownItem(
                 label=r.label if r.label else "Unknown",
                 net_revenue=float(r.net_revenue),
-                units=int(r.units),
+                units=_to_units(r.units),
                 share=(float(r.net_revenue) / total * 100) if total else 0.0,
             )
             for r in rows[:limit]  # rows arrive already sorted high→low
         ]
         return BreakdownResponse(dimension=dimension, total_net_revenue=total, items=items)
+
+    async def get_products(self, query: ProductQuery) -> Page[ProductCard]:
+        """One ranked, paginated page of products, each enriched with its image."""
+        cur_from, cur_to = _day_bounds(query.date_from, query.date_to)
+        rows, total = await self.repository.product_ranking(
+            cur_from, cur_to, query.rank_by, query.page, query.page_size
+        )
+        # one cheap image lookup for just this page's products
+        images = await self.repository.product_images([r.product_code for r in rows])
+
+        items = [
+            ProductCard(
+                product_code=r.product_code,
+                category=r.category or "Uncategorized",
+                image_url=images.get(r.product_code),
+                variant_count=r.variant_count,
+                net_revenue=float(r.net_revenue),
+                units=_to_units(r.units),
+                returns_units=_to_units(r.returns_units),
+            )
+            for r in rows
+        ]
+        pages = (total + query.page_size - 1) // query.page_size if total else 0
+        return Page[ProductCard](
+            items=items,
+            total=total,
+            page=query.page,
+            page_size=query.page_size,
+            pages=pages,
+        )
+
+    async def get_product_detail(
+        self, filters: AnalyticsFilters, product_code: str
+    ) -> ProductDetail:
+        """One product with its per-variant breakdown over the filtered window."""
+        cur_from, cur_to = _day_bounds(filters.date_from, filters.date_to)
+        variants = await self.repository.product_variants(cur_from, cur_to, product_code)
+        images = await self.repository.product_images([product_code])
+
+        return ProductDetail(
+            product_code=product_code,
+            image_url=images.get(product_code),
+            variant_count=len(variants),
+            net_revenue=sum((float(v.net_revenue) for v in variants), 0.0),
+            units=sum((_to_units(v.units) for v in variants), 0),
+            variants=[
+                VariantItem(
+                    sku=v.sku, net_revenue=float(v.net_revenue), units=_to_units(v.units)
+                )
+                for v in variants
+            ],
+        )
 
 
 # ── pure helpers (easy to unit-test in M16) ──────────────────────────────────
@@ -97,6 +156,13 @@ def _discount_rate(row: SummaryRow) -> float:
     if row.mrp_value == 0:
         return 0.0
     return float(row.discount_value / row.mrp_value * 100)
+
+
+def _to_units(value: Decimal) -> int:
+    """Quantities come from a NUMERIC column (Decimal). Round to a whole unit count
+    consistently everywhere, so a (theoretically) fractional sum never 500s a response
+    (Pydantic rejects fractional Decimal → int) nor silently truncates differently."""
+    return int(value.to_integral_value(rounding=ROUND_HALF_UP))
 
 
 def _delta(current: float | int | Decimal, previous: float | int | Decimal) -> KpiDelta:

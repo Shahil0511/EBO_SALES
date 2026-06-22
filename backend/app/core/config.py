@@ -12,10 +12,10 @@ Usage everywhere else in the app:
 """
 
 from functools import lru_cache
-from urllib.parse import quote_plus
 
-from pydantic import Field, SecretStr, computed_field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
@@ -49,20 +49,25 @@ class Settings(BaseSettings):
     db_max_overflow: int = 5
     db_statement_timeout_ms: int = 30_000
 
-    @computed_field  # type: ignore[prop-decorator]
     @property
-    def database_url(self) -> str:
-        """SQLAlchemy **async** DSN for the Unicorn warehouse.
+    def database_url(self) -> URL:
+        """SQLAlchemy **async** DSN for the Unicorn warehouse (asyncpg driver).
 
-        Uses the `asyncpg` driver (wired in M5). The password is URL-encoded with
-        `quote_plus`, which is exactly why the literal `@` in the password becomes
-        `%40` — an un-encoded `@` would be misread as the host separator.
-        Read-only-ness is NOT in the URL; we enforce it at the session level (M5).
+        A plain `@property` — NOT a `@computed_field` — on purpose: a computed_field is
+        included in `repr()` and `model_dump()`, which would re-expose the password and
+        defeat `SecretStr`'s masking. As a property it is never serialized.
+
+        `URL.create` encodes every component correctly (spaces, '@', ':' …) — safer than
+        manual string assembly. Read-only-ness is enforced at the session level (M5),
+        not in the URL.
         """
-        password = quote_plus(self.db_password.get_secret_value())
-        return (
-            f"postgresql+asyncpg://{self.db_user}:{password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
+        return URL.create(
+            "postgresql+asyncpg",
+            username=self.db_user,
+            password=self.db_password.get_secret_value(),
+            host=self.db_host,
+            port=self.db_port,
+            database=self.db_name,
         )
 
 

@@ -25,7 +25,7 @@ class OlabiSales(Base):
     __tablename__ = "olabi_sales"
 
     # ── Store ────────────────────────────────────────────────────────────────
-    invoice_associate_code: Mapped[str | None] = mapped_column(String)  # join → ebo_store_master.store_code
+    invoice_associate_code: Mapped[str | None] = mapped_column(String)  # → store_master.store_code
     invoice_associate_name: Mapped[str | None] = mapped_column(String)
     store_city: Mapped[str | None] = mapped_column(String)
 

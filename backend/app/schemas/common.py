@@ -24,3 +24,16 @@ class APIModel(BaseModel):
         populate_by_name=True,
         from_attributes=True,
     )
+
+
+class Page[T](APIModel):
+    """A generic paginated envelope, reused by every list endpoint (products now,
+    transactions in M13). `response_model=Page[ProductCard]` documents the exact shape.
+
+    Uses PEP 695 type-parameter syntax (`class Page[T]`) — Python 3.12+."""
+
+    items: list[T]
+    total: int
+    page: int
+    page_size: int
+    pages: int
