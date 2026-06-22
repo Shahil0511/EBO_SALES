@@ -1,0 +1,26 @@
+# ── Python virtual environment (never commit it — like node_modules) ─────────
+.venv/
+venv/
+
+# ── Byte-compiled / caches ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# ── Secrets & local config (commit .env.example, never .env) ─────────────────
+.env
+*.env
+!.env.example
+
+# ── Editor / OS noise ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Build artifacts ──────────────────────────────────────────────────────────
+*.egg-info/
+build/
+dist/

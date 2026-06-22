@@ -1,0 +1,55 @@
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Project identity + runtime dependencies (what `pip install` will fetch).
+[project]
+name = "libas-sales-intelligence"
+version = "0.1.0"
+description = "Read-only analytics API over the Unicorn warehouse (olabi_sales)."
+requires-python = ">=3.12"           # works on your 3.14 and on 3.12 in CI/Docker
+dependencies = [
+    "fastapi>=0.115",                # the web framework (~Express/Nest). Brings Pydantic + OpenAPI.
+    "uvicorn>=0.30",                 # the ASGI server that runs the app (~`node server.js`).
+    "pydantic-settings>=2.4",        # typed env/.env config (~@nestjs/config + a Zod schema).
+    "sqlalchemy[asyncio]>=2.0",      # ORM + query builder (~Prisma/TypeORM); [asyncio] pulls greenlet.
+    "asyncpg>=0.30",                 # the async PostgreSQL driver SQLAlchemy talks through.
+]
+
+# Dev-only tools (installed with `pip install -e ".[dev]"`). Not shipped to prod.
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",                     # linter + formatter (~ESLint + Prettier), very fast.
+    "mypy>=1.11",                    # static type checker (~`tsc --noEmit`).
+    "pytest>=8",                     # test runner (~Jest/Vitest).
+    "pytest-asyncio>=0.24",          # lets pytest run `async def` tests (our endpoints are async).
+    "httpx>=0.27",                   # async HTTP client; used to call the app in tests (~supertest).
+]
+
+# Tell setuptools that our importable code is the `app` package (and subpackages).
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# ── Ruff: lint + format ──────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# A pragmatic rule set: pycodestyle(E), pyflakes(F), isort(I), bugbear(B),
+# comprehensions(C4), pyupgrade(UP). Catches the mistakes a Python newcomer makes.
+select = ["E", "F", "I", "B", "C4", "UP"]
+
+# ── Mypy: static typing (this is what powers reliable Ctrl-click navigation) ──
+[tool.mypy]
+python_version = "3.12"
+strict = true                        # full type-checking; forces the typed code our
+                                     # navigability standard depends on.
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# ── Pytest ───────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+asyncio_mode = "auto"                # treat `async def test_*` as async automatically.
+testpaths = ["tests"]
