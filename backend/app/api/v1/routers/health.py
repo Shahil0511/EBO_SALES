@@ -1,19 +1,27 @@
+"""Health / readiness routes.
 
+Upgraded in M10 from a bare liveness check to a **readiness** probe: it runs a trivial
+`SELECT 1` so a 200 means "the API is up AND can reach the Unicorn warehouse". The DB
+session is injected the same way every data endpoint gets one — via `Depends(get_db)`.
+"""
 
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# A router is a mountable group of routes (~express.Router()). `tags` groups these
-# endpoints together in the /docs UI. No prefix here — the version prefix (/api/v1)
-# is applied once, centrally, in app.api.v1.router (DRY: one place owns the prefix).
+from app.db.session import get_db
+
 router = APIRouter(tags=["system"])
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    """Liveness probe — 200 while the process is up.
+async def health(db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, str]:
+    """Readiness probe — 200 only if a round-trip to Postgres succeeds.
 
-    Still a plain `def` (no IO yet). In M10 this becomes `async def` and pings the
-    Unicorn warehouse, so a 200 will mean "up AND able to reach the database".
+    (If the DB is unreachable this raises and currently surfaces as 500; M15's
+    centralized error handling will turn that into a clean 503.)
     """
-    return {"status": "ok"}
+    await db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "reachable"}
