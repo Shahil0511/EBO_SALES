@@ -17,13 +17,44 @@ from decimal import Decimal
 from typing import Literal
 
 from sqlalchemy import Numeric, cast, distinct, func, select, text
+from sqlalchemy.orm import InstrumentedAttribute
 
-from app.models import OlabiSales
+from app.models import EboStoreMaster, OlabiSales
 from app.repositories.base import BaseRepository
 
 # Bucket sizes we allow for the trend. A whitelist → safe to inline as an interval.
 TrendBucket = Literal["day", "week"]
 _BUCKET_INTERVAL: dict[TrendBucket, str] = {"day": "1 day", "week": "1 week"}
+
+# The dimensions a breakdown can group by. This vocabulary is owned by the data layer
+# because each value maps to a concrete GROUP BY column (see _DIMENSIONS below).
+BreakdownDimension = Literal[
+    "store", "category", "brand", "channel", "salesperson", "region", "city", "cluster"
+]
+
+
+@dataclass(frozen=True, slots=True)
+class _DimSpec:
+    """How to group by one dimension: the column, whether it needs the store-master
+    join, and whether blank labels (e.g. EC salesperson) should be excluded."""
+
+    column: InstrumentedAttribute[str | None]
+    needs_store_join: bool = False
+    exclude_blank: bool = False
+
+
+# Dimension → grouping column. Store/category/brand/channel/salesperson come straight
+# from the fact; region/city/cluster require the LEFT JOIN to ebo_store_master.
+_DIMENSIONS: dict[BreakdownDimension, _DimSpec] = {
+    "store": _DimSpec(OlabiSales.invoice_associate_name),
+    "category": _DimSpec(OlabiSales.category_name),
+    "brand": _DimSpec(OlabiSales.brand_name),
+    "channel": _DimSpec(OlabiSales.business_channel_code),
+    "salesperson": _DimSpec(OlabiSales.sales_person_name, exclude_blank=True),  # excludes EC
+    "region": _DimSpec(EboStoreMaster.region, needs_store_join=True),
+    "city": _DimSpec(EboStoreMaster.city, needs_store_join=True),
+    "cluster": _DimSpec(EboStoreMaster.cluster, needs_store_join=True),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +77,15 @@ class TrendPoint:
     """One bucket of the revenue trend."""
 
     bucket: datetime
+    net_revenue: Decimal
+    units: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class BreakdownRow:
+    """One group of a dimensional breakdown (label may be NULL → 'Unknown' upstream)."""
+
+    label: str | None
     net_revenue: Decimal
     units: Decimal
 
@@ -120,5 +160,46 @@ class SalesRepository(BaseRepository):
         rows = (await self.session.execute(stmt)).all()
         return [
             TrendPoint(bucket=r.bucket, net_revenue=r.net_revenue, units=r.units)
+            for r in rows
+        ]
+
+    async def revenue_by_dimension(
+        self, date_from: datetime, date_to: datetime, dimension: BreakdownDimension
+    ) -> list[BreakdownRow]:
+        """Net revenue + units grouped by one dimension, ordered high→low.
+
+        Returns ALL groups (the service slices top-N and computes share against the
+        full total). For region/city/cluster it LEFT JOINs `ebo_store_master`, so the
+        ~4 stores with no master row group under a NULL label rather than vanishing.
+        """
+        spec = _DIMENSIONS[dimension]
+        label = spec.column
+        nett = cast(OlabiSales.nett_invoice_value, Numeric(14, 2))
+        qty = OlabiSales.total_sales_qty
+        net_sum = func.coalesce(func.sum(nett), 0)
+
+        stmt = (
+            select(
+                label.label("label"),
+                net_sum.label("net_revenue"),
+                func.coalesce(func.sum(qty), 0).label("units"),
+            )
+            .select_from(OlabiSales)  # anchor FROM to the fact, even for joined dims
+            .where(OlabiSales.invoice_date >= date_from, OlabiSales.invoice_date < date_to)
+        )
+        if spec.needs_store_join:
+            stmt = stmt.join(
+                EboStoreMaster,
+                OlabiSales.invoice_associate_code == EboStoreMaster.store_code,
+                isouter=True,
+            )
+        if spec.exclude_blank:  # salesperson: drop EC's blank staff
+            stmt = stmt.where(label.isnot(None), label != "")
+
+        stmt = stmt.group_by(label).order_by(net_sum.desc())
+
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            BreakdownRow(label=r.label, net_revenue=r.net_revenue, units=r.units)
             for r in rows
         ]

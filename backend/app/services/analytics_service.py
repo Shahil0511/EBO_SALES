@@ -10,8 +10,14 @@ Navigability: `get_summary` → `repository.summary()` → the `select()` → `O
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from app.repositories.sales_repository import SalesRepository, SummaryRow, TrendBucket
+from app.repositories.sales_repository import (
+    BreakdownDimension,
+    SalesRepository,
+    SummaryRow,
+    TrendBucket,
+)
 from app.schemas.analytics import KpiDelta, SummaryResponse
+from app.schemas.breakdowns import BreakdownItem, BreakdownResponse
 from app.schemas.filters import AnalyticsFilters
 from app.schemas.trends import TrendPointOut, TrendResponse
 
@@ -53,6 +59,25 @@ class AnalyticsService:
             bucket=bucket,
             points=[TrendPointOut.model_validate(p) for p in points],
         )
+
+    async def get_breakdown(
+        self, filters: AnalyticsFilters, dimension: BreakdownDimension, limit: int
+    ) -> BreakdownResponse:
+        """Top-`limit` groups of one dimension, with share against the full total."""
+        cur_from, cur_to = _day_bounds(filters.date_from, filters.date_to)
+        rows = await self.repository.revenue_by_dimension(cur_from, cur_to, dimension)
+
+        total = sum((float(r.net_revenue) for r in rows), 0.0)
+        items = [
+            BreakdownItem(
+                label=r.label if r.label else "Unknown",
+                net_revenue=float(r.net_revenue),
+                units=int(r.units),
+                share=(float(r.net_revenue) / total * 100) if total else 0.0,
+            )
+            for r in rows[:limit]  # rows arrive already sorted high→low
+        ]
+        return BreakdownResponse(dimension=dimension, total_net_revenue=total, items=items)
 
 
 # ── pure helpers (easy to unit-test in M16) ──────────────────────────────────
