@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
 
+import { Providers } from "@/app/providers";
+
 import "./globals.css";
 
 // Body sans. Maps to --font-sans / Tailwind `font-sans` (the default).
@@ -29,7 +31,9 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${fraunces.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="bg-background text-foreground flex min-h-full flex-col">{children}</body>
+      <body className="bg-background text-foreground flex min-h-full flex-col">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
