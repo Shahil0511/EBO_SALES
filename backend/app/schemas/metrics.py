@@ -21,12 +21,13 @@ class MetricPointOut(APIModel):
 
 
 class MetricBreakdownItem(APIModel):
-    """One dimension group's value for this metric, with its share of the dimension total
-    (share is meaningful only for additive metrics; the client hides it for percent units)."""
+    """One dimension group's value for this metric, with its share of the dimension total.
+    `share` is None for non-additive metrics (distinct counts / ratios), where a share% would
+    be misleading; the client omits the annotation when it is null."""
 
     label: str
     value: float
-    share: float
+    share: float | None = None
 
 
 class MetricBreakdownGroup(APIModel):

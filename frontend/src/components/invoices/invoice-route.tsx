@@ -16,6 +16,7 @@ export function InvoiceRoute() {
   const no = sp.get("no");
   const from = sp.get("from") || filters.dateFrom;
   const to = sp.get("to") || filters.dateTo;
+  const store = sp.get("store") || undefined;
 
   if (!no) {
     return (
@@ -33,5 +34,5 @@ export function InvoiceRoute() {
     );
   }
 
-  return <InvoiceDetail invoiceNo={no} dateFrom={from} dateTo={to} />;
+  return <InvoiceDetail invoiceNo={no} dateFrom={from} dateTo={to} store={store} />;
 }

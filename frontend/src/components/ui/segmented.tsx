@@ -16,20 +16,23 @@ export function Segmented<T extends string>({
   options,
   layoutId,
   className,
+  ariaLabel,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { key: T; label: string }[];
   layoutId: string;
   className?: string;
+  ariaLabel?: string;
 }) {
   return (
-    <div className={cn("bg-muted/60 flex gap-0.5 rounded-lg p-0.5", className)}>
+    <div role="group" aria-label={ariaLabel} className={cn("bg-muted/60 flex gap-0.5 rounded-lg p-0.5", className)}>
       {options.map((o) => (
         <button
           key={o.key}
           type="button"
           onClick={() => onChange(o.key)}
+          aria-pressed={value === o.key}
           className={cn(
             "relative rounded-md px-2.5 py-1 text-xs transition-colors",
             value === o.key ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",

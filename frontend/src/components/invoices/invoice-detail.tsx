@@ -54,13 +54,15 @@ export function InvoiceDetail({
   invoiceNo,
   dateFrom,
   dateTo,
+  store,
 }: {
   invoiceNo: string;
   dateFrom: string;
   dateTo: string;
+  store?: string;
 }) {
   const { filters } = useFilters();
-  const { data, isLoading, isError } = useInvoiceDetail(invoiceNo, dateFrom, dateTo);
+  const { data, isLoading, isError } = useInvoiceDetail(invoiceNo, dateFrom, dateTo, store);
   const qs = serializeFilters(filters).toString();
 
   return (

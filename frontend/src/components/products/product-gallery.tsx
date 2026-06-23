@@ -52,7 +52,7 @@ export function ProductGallery({ className }: { className?: string }) {
           <h3 className="font-heading text-sm font-semibold">Products</h3>
           <p className="text-muted-foreground text-xs">{num(total)} with sales in range</p>
         </div>
-        <Segmented value={rankBy} onChange={setRankBy} options={TABS} layoutId="productRank" />
+        <Segmented value={rankBy} onChange={setRankBy} options={TABS} layoutId="productRank" ariaLabel="Rank by" />
       </div>
 
       {isError ? (

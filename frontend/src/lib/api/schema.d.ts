@@ -183,6 +183,7 @@ export interface paths {
         /**
          * Get Invoice Detail
          * @description Every line item of one invoice, scoped to a date window so chunks are pruned.
+         *     Optional `store` (associate name) disambiguates reused POS invoice numbers.
          */
         get: operations["get_invoice_detail_api_v1_transactions_invoice__invoice_no__get"];
         put?: never;
@@ -294,6 +295,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/hierarchy/{level}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Store Hierarchy
+         * @description Current-month totals grouped by region / cluster / area-manager / regional-manager.
+         */
+        get: operations["get_store_hierarchy_api_v1_stores_hierarchy__level__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Store Detail
+         * @description One store's detail over [dateFrom, dateTo]: KPIs + daily series + salesperson leaderboard.
+         */
+        get: operations["get_store_detail_api_v1_stores__store_code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -339,6 +380,33 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HierarchyResponse */
+        HierarchyResponse: {
+            /** Level */
+            level: string;
+            /** Asof */
+            asOf?: string | null;
+            /** Items */
+            items: components["schemas"]["HierarchyRow"][];
+        };
+        /**
+         * HierarchyRow
+         * @description One hierarchy group (region / cluster / a manager) rolled up across its stores.
+         */
+        HierarchyRow: {
+            /** Label */
+            label: string;
+            /** Nsv */
+            nsv: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Storecount */
+            storeCount: number;
+            /** Atv */
+            atv: number;
         };
         /**
          * InvoiceDetailResponse
@@ -419,8 +487,9 @@ export interface components {
         };
         /**
          * MetricBreakdownItem
-         * @description One dimension group's value for this metric, with its share of the dimension total
-         *     (share is meaningful only for additive metrics; the client hides it for percent units).
+         * @description One dimension group's value for this metric, with its share of the dimension total.
+         *     `share` is None for non-additive metrics (distinct counts / ratios), where a share% would
+         *     be misleading; the client omits the annotation when it is null.
          */
         MetricBreakdownItem: {
             /** Label */
@@ -428,7 +497,7 @@ export interface components {
             /** Value */
             value: number;
             /** Share */
-            share: number;
+            share?: number | null;
         };
         /**
          * MetricDetailResponse
@@ -561,10 +630,89 @@ export interface components {
             hits: components["schemas"]["SearchHitOut"][];
         };
         /**
+         * StoreDayPoint
+         * @description One day of a store's series.
+         */
+        StoreDayPoint: {
+            /**
+             * Bucket
+             * Format: date
+             */
+            bucket: string;
+            /** Nsv */
+            nsv: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Returns */
+            returns: number;
+        };
+        /**
+         * StoreDetailResponse
+         * @description One store's detail for the selected window: header + KPIs + daily series + staff.
+         */
+        StoreDetailResponse: {
+            /** Storecode */
+            storeCode: string;
+            /** Storename */
+            storeName: string | null;
+            /** Storetype */
+            storeType: string | null;
+            /** Region */
+            region: string | null;
+            /** State */
+            state: string | null;
+            /** City */
+            city: string | null;
+            /** Cluster */
+            cluster: string | null;
+            /** Storemanager */
+            storeManager: string | null;
+            /** Clustermanager */
+            clusterManager: string | null;
+            /** Areamanager */
+            areaManager: string | null;
+            /** Regionalmanager */
+            regionalManager: string | null;
+            /** Nsv */
+            nsv: number;
+            /** Gsv */
+            gsv: number;
+            /** Mrp */
+            mrp: number;
+            /** Discount */
+            discount: number;
+            /** Discpct */
+            discPct: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Returns */
+            returns: number;
+            /** Atv */
+            atv: number;
+            /** Asp */
+            asp: number;
+            /** Basket */
+            basket: number;
+            /** Opday */
+            opDay: number;
+            /** Avgsale */
+            avgSale: number;
+            /** Trend */
+            trend: components["schemas"]["StoreDayPoint"][];
+            /** Salespeople */
+            salespeople: components["schemas"]["StorePersonRow"][];
+        };
+        /**
          * StoreLeaderboardResponse
          * @description Current-month store leaderboard, ranked by MTD sale.
          */
         StoreLeaderboardResponse: {
+            /** Asof */
+            asOf?: string | null;
             /** Items */
             items: components["schemas"]["StoreMtdRow"][];
         };
@@ -630,6 +778,24 @@ export interface components {
             code: string;
             /** Name */
             name: string | null;
+        };
+        /**
+         * StorePersonRow
+         * @description One salesperson's totals within a store.
+         */
+        StorePersonRow: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string | null;
+            /** Nsv */
+            nsv: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Atv */
+            atv: number;
         };
         /**
          * SummaryResponse
@@ -1088,6 +1254,7 @@ export interface operations {
             query: {
                 dateFrom: string;
                 dateTo: string;
+                store?: string | null;
             };
             header?: never;
             path: {
@@ -1299,6 +1466,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StoreLeaderboardResponse"];
+                };
+            };
+        };
+    };
+    get_store_hierarchy_api_v1_stores_hierarchy__level__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                level: "region" | "cluster" | "area_manager" | "regional_manager";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HierarchyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_store_detail_api_v1_stores__store_code__get: {
+        parameters: {
+            query: {
+                dateFrom: string;
+                dateTo: string;
+            };
+            header?: never;
+            path: {
+                store_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

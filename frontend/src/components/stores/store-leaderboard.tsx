@@ -1,11 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStoreLeaderboard } from "@/lib/api/hooks/use-store-leaderboard";
+import { serializeFilters } from "@/lib/filters";
 import { inr, num } from "@/lib/format";
+import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`;
+}
 
 type Row = {
   storeCode: string;
@@ -76,9 +85,11 @@ function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
 }
 
 export function StoreLeaderboard() {
+  const { filters } = useFilters();
   const { data, isLoading, isError } = useStoreLeaderboard();
   const [sortKey, setSortKey] = useState<SortKey>("mtdSale");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const qs = serializeFilters(filters).toString();
 
   if (isError) {
     return <p className="text-destructive text-sm">Failed to load store performance.</p>;
@@ -103,6 +114,11 @@ export function StoreLeaderboard() {
 
   return (
     <section className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
+      {data?.asOf && (
+        <p className="text-muted-foreground border-border border-b px-3 py-2 text-[11px]">
+          Current month · data through {fmtDate(data.asOf)} · {items.length} stores
+        </p>
+      )}
       {isLoading ? (
         <div className="space-y-2 p-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -116,13 +132,22 @@ export function StoreLeaderboard() {
               <th scope="col" className="px-3 py-2.5 font-medium">
                 #
               </th>
-              <th scope="col" className="px-3 py-2.5 font-medium">
+              <th
+                scope="col"
+                aria-sort={sortKey === "storeName" ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+                className="px-3 py-2.5 font-medium"
+              >
                 <button type="button" onClick={() => onSort("storeName")} className="hover:text-foreground inline-flex items-center gap-0.5">
                   Store <SortArrow active={sortKey === "storeName"} dir={sortDir} />
                 </button>
               </th>
               {COLS.map((c) => (
-                <th key={c.key} scope="col" className="px-3 py-2.5 text-right font-medium whitespace-nowrap">
+                <th
+                  key={c.key}
+                  scope="col"
+                  aria-sort={sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+                  className="px-3 py-2.5 text-right font-medium whitespace-nowrap"
+                >
                   <button type="button" onClick={() => onSort(c.key)} className="hover:text-foreground inline-flex items-center gap-0.5">
                     {c.label} <SortArrow active={sortKey === c.key} dir={sortDir} />
                   </button>
@@ -135,7 +160,12 @@ export function StoreLeaderboard() {
               <tr key={r.storeCode} className="border-border/60 hover:bg-muted/40 border-b transition-colors">
                 <td className="text-muted-foreground px-3 py-2 font-mono">{i + 1}</td>
                 <td className="px-3 py-2">
-                  <div className="font-medium whitespace-nowrap">{r.storeName ?? r.storeCode}</div>
+                  <Link
+                    href={`/stores?code=${encodeURIComponent(r.storeCode)}${qs ? `&${qs}` : ""}`}
+                    className="hover:text-primary font-medium whitespace-nowrap hover:underline"
+                  >
+                    {r.storeName ?? r.storeCode}
+                  </Link>
                   <div className="text-muted-foreground text-[11px]">
                     {[r.region, r.city, r.storeType].filter(Boolean).join(" · ")}
                   </div>

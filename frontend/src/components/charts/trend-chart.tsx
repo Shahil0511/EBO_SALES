@@ -104,8 +104,8 @@ export function TrendChart({ className }: { className?: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Segmented value={chartType} onChange={setChartType} options={CHART_TYPES} layoutId="trendType" />
-          <Segmented value={bucket} onChange={setBucket} options={BUCKETS} layoutId="trendBucket" />
+          <Segmented value={chartType} onChange={setChartType} options={CHART_TYPES} layoutId="trendType" ariaLabel="Chart type" />
+          <Segmented value={bucket} onChange={setBucket} options={BUCKETS} layoutId="trendBucket" ariaLabel="Time granularity" />
         </div>
       </div>
       <div className="text-muted-foreground h-64 w-full text-xs">

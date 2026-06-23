@@ -1,16 +1,12 @@
-import { StoreLeaderboard } from "@/components/stores/store-leaderboard";
+import { Suspense } from "react";
 
-/** Store performance — current-month leaderboard for every store (fast matview roll-up). */
+import { StoreRoute } from "@/components/stores/store-route";
+
+/** Store performance: /stores (leaderboard) and /stores?code=<store_code> (detail). */
 export default function StoresPage() {
   return (
-    <div className="space-y-4 p-4 lg:p-6">
-      <div>
-        <h1 className="font-heading text-lg font-semibold">Store performance</h1>
-        <p className="text-muted-foreground text-sm">
-          This month, every store — ranked by net sale. Sort any column.
-        </p>
-      </div>
-      <StoreLeaderboard />
-    </div>
+    <Suspense fallback={<div className="text-muted-foreground p-6 text-sm">Loading…</div>}>
+      <StoreRoute />
+    </Suspense>
   );
 }

@@ -611,10 +611,16 @@ class SalesRepository(BaseRepository):
         ], total
 
     async def invoice_lines(
-        self, invoice_no: str, date_from: datetime, date_to: datetime
+        self,
+        invoice_no: str,
+        date_from: datetime,
+        date_to: datetime,
+        store: str | None = None,
     ) -> list[TransactionRow]:
         """Every line item for one invoice, within the date window so TimescaleDB prunes
-        chunks (the caller passes the row's date, or the current filter range)."""
+        chunks (the caller passes the row's date, or the current filter range). `store`
+        (associate name) disambiguates collisions: POS invoice numbers are reused across
+        stores/days, so without it two physically different bills could merge into one."""
         stmt = (
             select(*_TXN_COLUMNS)
             .where(
@@ -624,6 +630,8 @@ class SalesRepository(BaseRepository):
             )
             .order_by(OlabiSales.product_code)
         )
+        if store:
+            stmt = stmt.where(OlabiSales.invoice_associate_name == store)
         rows = (await self.session.execute(stmt)).all()
         return [_to_transaction_row(r) for r in rows]
 

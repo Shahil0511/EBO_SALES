@@ -8,11 +8,21 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import distinct, func, select
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.models import EgStoreDay
 from app.repositories.base import BaseRepository
+
+HierarchyLevel = Literal["region", "cluster", "area_manager", "regional_manager"]
+_HIERARCHY_COLUMNS: dict[HierarchyLevel, InstrumentedAttribute[str | None]] = {
+    "region": EgStoreDay.region,
+    "cluster": EgStoreDay.cluster,
+    "area_manager": EgStoreDay.area_manager,
+    "regional_manager": EgStoreDay.regional_manager,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,16 +52,70 @@ class StoreMtdRaw:
     wow_bill_nsv: float  # this-week NSV
 
 
-class StoreRepository(BaseRepository):
-    """Store leaderboard + (later) per-store detail and hierarchy rollups."""
+@dataclass(frozen=True, slots=True)
+class StoreSummaryRaw:
+    """One store's header (geo/managers) + aggregate KPIs over a date range."""
 
-    async def mtd_leaderboard(self) -> list[StoreMtdRaw]:
+    store_code: str
+    store_name: str | None
+    store_type: str | None
+    region: str | None
+    state: str | None
+    city: str | None
+    cluster: str | None
+    store_manager: str | None
+    cluster_manager: str | None
+    area_manager: str | None
+    regional_manager: str | None
+    nsv: Decimal
+    gsv: Decimal
+    mrp: Decimal
+    discount: Decimal
+    bill_cnt: int
+    qty: Decimal
+    returns: Decimal
+    op_day: int
+
+
+@dataclass(frozen=True, slots=True)
+class StoreDayRaw:
+    bucket: date
+    nsv: Decimal
+    bill_cnt: int
+    qty: Decimal
+    returns: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class StorePersonRaw:
+    code: str
+    name: str | None
+    nsv: Decimal
+    bill_cnt: int
+    qty: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class HierarchyRaw:
+    """One group (a region / cluster / manager) rolled up across its stores, current month."""
+
+    label: str
+    nsv: Decimal
+    bill_cnt: int
+    qty: Decimal
+    store_count: int
+
+
+class StoreRepository(BaseRepository):
+    """Store leaderboard + per-store detail and (later) hierarchy rollups."""
+
+    async def mtd_leaderboard(self) -> tuple[date | None, list[StoreMtdRaw]]:
         """Current-month roll-up per store from the matview, ranked by NSV, with a WoW bill delta.
-        Two small group-by scans of ~135k stored rows → sub-second."""
+        Returns (data-as-of date, rows). Two small group-bys of ~135k stored rows → sub-second."""
         g = EgStoreDay
         max_bucket: date | None = await self.session.scalar(select(func.max(g.bucket)))
         if max_bucket is None:
-            return []
+            return None, []
         month_start = max_bucket.replace(day=1)
         days_in_month = calendar.monthrange(max_bucket.year, max_bucket.month)[1]
         cur_week_start = max_bucket - timedelta(days=6)
@@ -81,7 +145,7 @@ class StoreRepository(BaseRepository):
             )
             .where(g.bucket >= month_start, g.store_code.isnot(None))
             .group_by(g.store_code)
-            .order_by(func.sum(g.nsv).desc())
+            .order_by(func.coalesce(func.sum(g.nsv), 0).desc())
         )
         agg_rows = (await self.session.execute(agg_stmt)).all()
 
@@ -130,4 +194,144 @@ class StoreRepository(BaseRepository):
                     wow_bill_nsv=wnsv,
                 )
             )
-        return out
+        return max_bucket, out
+
+    async def hierarchy_rollup(
+        self, level: HierarchyLevel
+    ) -> tuple[date | None, list[HierarchyRaw]]:
+        """Current-month totals grouped by one hierarchy level (region / cluster / a manager),
+        ranked by NSV, with a store count per group. Returns (data-as-of, rows)."""
+        g = EgStoreDay
+        col = _HIERARCHY_COLUMNS[level]
+        max_bucket: date | None = await self.session.scalar(select(func.max(g.bucket)))
+        if max_bucket is None:
+            return None, []
+        month_start = max_bucket.replace(day=1)
+        stmt = (
+            select(
+                col.label("label"),
+                func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+                func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+                func.coalesce(func.sum(g.qty), 0).label("qty"),
+                func.count(distinct(g.store_code)).label("store_count"),
+            )
+            .where(g.bucket >= month_start, col.isnot(None), func.btrim(col) != "")
+            .group_by(col)
+            .order_by(func.coalesce(func.sum(g.nsv), 0).desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return max_bucket, [
+            HierarchyRaw(
+                label=r.label,
+                nsv=r.nsv,
+                bill_cnt=int(r.bill_cnt),
+                qty=r.qty,
+                store_count=int(r.store_count),
+            )
+            for r in rows
+        ]
+
+    async def store_summary(
+        self, store_code: str, date_from: date, date_to: date
+    ) -> StoreSummaryRaw | None:
+        """One store's header + aggregate KPIs over [date_from, date_to]. None if no data."""
+        g = EgStoreDay
+        stmt = select(
+            func.max(g.store_name).label("store_name"),
+            func.max(g.store_type).label("store_type"),
+            func.max(g.region).label("region"),
+            func.max(g.state).label("state"),
+            func.max(g.city).label("city"),
+            func.max(g.cluster).label("cluster"),
+            func.max(g.store_manager).label("store_manager"),
+            func.max(g.cluster_manager).label("cluster_manager"),
+            func.max(g.area_manager).label("area_manager"),
+            func.max(g.regional_manager).label("regional_manager"),
+            func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+            func.coalesce(func.sum(g.gsv), 0).label("gsv"),
+            func.coalesce(func.sum(g.mrp), 0).label("mrp"),
+            func.coalesce(func.sum(g.discount_value), 0).label("discount"),
+            func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+            func.coalesce(func.sum(g.qty), 0).label("qty"),
+            func.coalesce(func.sum(g.returns), 0).label("returns"),
+            func.count(distinct(g.bucket)).label("op_day"),
+        ).where(g.store_code == store_code, g.bucket >= date_from, g.bucket <= date_to)
+
+        r = (await self.session.execute(stmt)).one()
+        if int(r.op_day) == 0:  # no rows matched the window (op_day = count(distinct bucket))
+            return None
+        return StoreSummaryRaw(
+            store_code=store_code,
+            store_name=r.store_name,
+            store_type=r.store_type,
+            region=r.region,
+            state=r.state,
+            city=r.city,
+            cluster=r.cluster,
+            store_manager=r.store_manager,
+            cluster_manager=r.cluster_manager,
+            area_manager=r.area_manager,
+            regional_manager=r.regional_manager,
+            nsv=r.nsv,
+            gsv=r.gsv,
+            mrp=r.mrp,
+            discount=r.discount,
+            bill_cnt=int(r.bill_cnt),
+            qty=r.qty,
+            returns=r.returns,
+            op_day=int(r.op_day),
+        )
+
+    async def store_daily(
+        self, store_code: str, date_from: date, date_to: date
+    ) -> list[StoreDayRaw]:
+        """Daily NSV/bills/qty/returns for one store over the range, ordered by date."""
+        g = EgStoreDay
+        stmt = (
+            select(
+                g.bucket,
+                func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+                func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+                func.coalesce(func.sum(g.qty), 0).label("qty"),
+                func.coalesce(func.sum(g.returns), 0).label("returns"),
+            )
+            .where(g.store_code == store_code, g.bucket >= date_from, g.bucket <= date_to)
+            .group_by(g.bucket)
+            .order_by(g.bucket)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            StoreDayRaw(
+                bucket=r.bucket, nsv=r.nsv, bill_cnt=int(r.bill_cnt), qty=r.qty, returns=r.returns
+            )
+            for r in rows
+        ]
+
+    async def store_salespeople(
+        self, store_code: str, date_from: date, date_to: date
+    ) -> list[StorePersonRaw]:
+        """Per-salesperson totals in a store, ranked by NSV (blank staff excluded)."""
+        g = EgStoreDay
+        stmt = (
+            select(
+                g.sales_person_code.label("code"),
+                func.max(g.sales_person_name).label("name"),
+                func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+                func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+                func.coalesce(func.sum(g.qty), 0).label("qty"),
+            )
+            .where(
+                g.store_code == store_code,
+                g.bucket >= date_from,
+                g.bucket <= date_to,
+                g.sales_person_code.isnot(None),
+                g.sales_person_code != "",
+            )
+            .group_by(g.sales_person_code)
+            .order_by(func.coalesce(func.sum(g.nsv), 0).desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            StorePersonRaw(code=r.code, name=r.name, nsv=r.nsv, bill_cnt=int(r.bill_cnt), qty=r.qty)
+            for r in rows
+        ]

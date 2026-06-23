@@ -84,7 +84,7 @@ export function BreakdownBars({
     <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="font-heading text-sm font-semibold">{title}</h3>
-        <Segmented value={view} onChange={setView} options={VIEWS} layoutId={`bd-${dimension}`} />
+        <Segmented value={view} onChange={setView} options={VIEWS} layoutId={`bd-${dimension}`} ariaLabel="Chart type" />
       </div>
 
       {/* Fixed-height chart area → every breakdown card is the same height (no blank-half). */}

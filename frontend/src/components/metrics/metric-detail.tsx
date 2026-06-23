@@ -193,7 +193,7 @@ export function MetricDetail({ metric }: { metric: MetricKey }) {
                               </span>
                               <span className="text-muted-foreground shrink-0 font-mono">
                                 {fmt(item.value, unit)}
-                                {unit !== "percent" && (
+                                {item.share != null && (
                                   <span className="text-muted-foreground/70"> · {item.share.toFixed(0)}%</span>
                                 )}
                               </span>

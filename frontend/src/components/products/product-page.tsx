@@ -108,7 +108,9 @@ export function ProductPage({ code }: { code: string }) {
                 )}
               </div>
               <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                {summary.isLoading || !summary.data ? (
+                {summary.isError ? (
+                  <p className="text-destructive col-span-full self-center text-xs">Couldn&apos;t load metrics.</p>
+                ) : summary.isLoading || !summary.data ? (
                   Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
                 ) : (
                   <>
@@ -126,7 +128,9 @@ export function ProductPage({ code }: { code: string }) {
             <section className="border-border bg-card shadow-card rounded-xl border p-4">
               <h3 className="font-heading mb-3 text-sm font-semibold">Revenue trend</h3>
               <div className="text-muted-foreground h-60 w-full text-xs">
-                {trend.isLoading ? (
+                {trend.isError ? (
+                  <div className="grid h-full place-items-center">Couldn&apos;t load the trend.</div>
+                ) : trend.isLoading ? (
                   <Skeleton className="size-full rounded-lg" />
                 ) : points.length === 0 ? (
                   <div className="grid h-full place-items-center">No sales in this range</div>

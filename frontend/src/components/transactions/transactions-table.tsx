@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -190,8 +191,9 @@ export function TransactionsTable({
                 </tr>
               ) : (
                 rows.map((r, i) => {
+                  const store = r.store ? `&store=${encodeURIComponent(r.store)}` : "";
                   const href = r.invoiceNo
-                    ? `/invoices?no=${encodeURIComponent(r.invoiceNo)}&from=${r.invoiceDate.slice(0, 10)}&to=${r.invoiceDate.slice(0, 10)}&${qs}`
+                    ? `/invoices?no=${encodeURIComponent(r.invoiceNo)}&from=${r.invoiceDate.slice(0, 10)}&to=${r.invoiceDate.slice(0, 10)}${store}&${qs}`
                     : null;
                   return (
                     <tr
@@ -210,7 +212,18 @@ export function TransactionsTable({
                             c.align === "right" && "text-right",
                           )}
                         >
-                          {c.cell(r)}
+                          {c.label === "Invoice" && href ? (
+                            // A real link → keyboard-reachable + announced; row onClick stays for mouse.
+                            <Link
+                              href={href}
+                              onClick={(e) => e.stopPropagation()}
+                              className="hover:text-primary font-mono hover:underline"
+                            >
+                              {r.invoiceNo}
+                            </Link>
+                          ) : (
+                            c.cell(r)
+                          )}
                         </td>
                       ))}
                     </tr>

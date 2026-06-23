@@ -33,6 +33,8 @@ async def get_invoice_detail(
     date_from: Annotated[date, Query(alias="dateFrom")],
     date_to: Annotated[date, Query(alias="dateTo")],
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    store: Annotated[str | None, Query()] = None,
 ) -> InvoiceDetailResponse:
-    """Every line item of one invoice, scoped to a date window so chunks are pruned."""
-    return await service.get_invoice_detail(invoice_no, date_from, date_to)
+    """Every line item of one invoice, scoped to a date window so chunks are pruned.
+    Optional `store` (associate name) disambiguates reused POS invoice numbers."""
+    return await service.get_invoice_detail(invoice_no, date_from, date_to, store)

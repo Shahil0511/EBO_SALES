@@ -121,6 +121,11 @@ class AnalyticsService:
 
         trend = await self.repository.metric_trend(flt, metric, "day")
 
+        # Share% is meaningful only for ADDITIVE metrics. invoices/customers are distinct
+        # counts (one invoice/customer can fall in several groups, so the per-group counts
+        # overlap and don't sum to the true total) and discount_rate is a ratio — for those
+        # we send share=None so the client omits the misleading "· N%" annotation.
+        additive = metric in _ADDITIVE_METRICS
         breakdowns: list[MetricBreakdownGroup] = []
         for dimension in _METRIC_BREAKDOWN_DIMS:
             rows = await self.repository.metric_by_dimension(flt, metric, dimension)
@@ -129,7 +134,7 @@ class AnalyticsService:
                 MetricBreakdownItem(
                     label=r.label if r.label else "Unknown",
                     value=float(r.value),
-                    share=(float(r.value) / total * 100) if total else 0.0,
+                    share=(float(r.value) / total * 100) if (additive and total) else None,
                 )
                 for r in rows[:8]  # already sorted high→low
             ]
@@ -238,11 +243,12 @@ class AnalyticsService:
         )
 
     async def get_invoice_detail(
-        self, invoice_no: str, date_from: date, date_to: date
+        self, invoice_no: str, date_from: date, date_to: date, store: str | None = None
     ) -> InvoiceDetailResponse:
-        """One full invoice (bill): header + every line item, within the date window."""
+        """One full invoice (bill): header + every line item, within the date window.
+        `store` (associate name) disambiguates reused POS invoice numbers across stores/days."""
         start, end = _day_bounds(date_from, date_to)
-        rows = await self.repository.invoice_lines(invoice_no, start, end)
+        rows = await self.repository.invoice_lines(invoice_no, start, end, store)
         if not rows:
             raise NotFoundError(f"Invoice '{invoice_no}' not found in this window")
 
@@ -425,6 +431,11 @@ _METRIC_UNITS: dict[MetricKey, MetricUnit] = {
 }
 # The four primary dimensions every metric page is sliced by (mirrors the dashboard).
 _METRIC_BREAKDOWN_DIMS: tuple[BreakdownDimension, ...] = ("store", "category", "brand", "channel")
+# Metrics whose per-group values genuinely sum to the whole (so a breakdown share% is valid).
+# Distinct counts (invoices, customers) and ratios (discount_rate) are excluded.
+_ADDITIVE_METRICS: frozenset[MetricKey] = frozenset(
+    {"net_revenue", "gross_sales", "returns_value", "units_sold"}
+)
 
 
 def _metric_value(row: SummaryRow, metric: MetricKey) -> float:
