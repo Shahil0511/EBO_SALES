@@ -2,7 +2,17 @@
 
 import { m, useReducedMotion } from "motion/react";
 import { useState } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,12 +57,61 @@ function ChartTooltip(props: {
   );
 }
 
+type ChartType = "area" | "bar" | "line";
+const CHART_TYPES: { key: ChartType; label: string }[] = [
+  { key: "area", label: "Area" },
+  { key: "bar", label: "Bars" },
+  { key: "line", label: "Line" },
+];
+const BUCKETS: { key: TrendBucket; label: string }[] = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+];
+
+/** A segmented control with a sliding `layoutId` pill. Generic over the option key. */
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  layoutId,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { key: T; label: string }[];
+  layoutId: string;
+}) {
+  return (
+    <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(o.key)}
+          className={cn(
+            "relative rounded-md px-2.5 py-1 text-xs transition-colors",
+            value === o.key ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {value === o.key && (
+            <m.span
+              layoutId={layoutId}
+              className="bg-primary absolute inset-0 rounded-md"
+              transition={SPRING.layout}
+            />
+          )}
+          <span className="relative z-10">{o.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function TrendChart({ className }: { className?: string }) {
   const { filters } = useFilters();
   const [bucket, setBucket] = useState<TrendBucket>("day");
+  const [chartType, setChartType] = useState<ChartType>("area");
   const reduce = useReducedMotion();
-  // Draw the area ONCE (on first load). Re-running the full draw on every filter tweak is
-  // distracting; onAnimationEnd flips this off so later data updates just snap.
+  // Draw the chart ONCE (on first load); later data updates snap (onAnimationEnd flips this).
   const [hasAnimated, setHasAnimated] = useState(false);
   const { data, isLoading, isError } = useTrend(filters, bucket);
 
@@ -63,36 +122,27 @@ export function TrendChart({ className }: { className?: string }) {
   }));
   const total = points.reduce((s, p) => s + p.netRevenue, 0);
 
+  // Shared animation props for whichever series is active.
+  const anim = {
+    isAnimationActive: !reduce && !hasAnimated,
+    animationDuration: DURATION_MS.chart,
+    animationEasing: "ease-out" as const,
+    animationBegin: 80,
+    onAnimationEnd: () => setHasAnimated(true),
+  };
+
   return (
     <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
-      <div className="mb-3 flex items-start justify-between">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-heading text-sm font-semibold">Revenue trend</h3>
           <p className="text-muted-foreground text-xs">
             <AnimatedNumber value={total} format={inr} /> net
           </p>
         </div>
-        <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
-          {(["day", "week"] as const).map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => setBucket(b)}
-              className={cn(
-                "relative rounded-md px-2.5 py-1 text-xs capitalize transition-colors",
-                bucket === b ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {bucket === b && (
-                <m.span
-                  layoutId="trendToggle"
-                  className="bg-primary absolute inset-0 rounded-md"
-                  transition={SPRING.layout}
-                />
-              )}
-              <span className="relative z-10">{b}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Segmented value={chartType} onChange={setChartType} options={CHART_TYPES} layoutId="trendType" />
+          <Segmented value={bucket} onChange={setBucket} options={BUCKETS} layoutId="trendBucket" />
         </div>
       </div>
       <div className="text-muted-foreground h-64 w-full text-xs">
@@ -104,7 +154,7 @@ export function TrendChart({ className }: { className?: string }) {
           <div className="grid h-full place-items-center">No data in this range</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+            <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
               <defs>
                 <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.25} />
@@ -127,20 +177,31 @@ export function TrendChart({ className }: { className?: string }) {
                 width={48}
               />
               <Tooltip content={<ChartTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="netRevenue"
-                stroke="var(--chart-1)"
-                strokeWidth={2}
-                fill="url(#trendGrad)"
-                dot={points.length === 1}
-                isAnimationActive={!reduce && !hasAnimated}
-                animationDuration={DURATION_MS.chart}
-                animationEasing="ease-out"
-                animationBegin={80}
-                onAnimationEnd={() => setHasAnimated(true)}
-              />
-            </AreaChart>
+              {chartType === "area" && (
+                <Area
+                  type="monotone"
+                  dataKey="netRevenue"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  fill="url(#trendGrad)"
+                  dot={points.length === 1}
+                  {...anim}
+                />
+              )}
+              {chartType === "bar" && (
+                <Bar dataKey="netRevenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={48} {...anim} />
+              )}
+              {chartType === "line" && (
+                <Line
+                  type="monotone"
+                  dataKey="netRevenue"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  dot={false}
+                  {...anim}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

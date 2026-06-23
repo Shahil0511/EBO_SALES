@@ -13,14 +13,14 @@ import { TransactionsTable } from "@/components/transactions/transactions-table"
 
 export default function DashboardPage() {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex h-full flex-col">
       <SiteHeader />
       {/* One Suspense boundary: the rail + every section read filters from the URL. */}
       <Suspense fallback={<div className="flex-1" />}>
-        <div className="flex flex-1">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <FilterRail />
           <MobileFilters />
-          <main className="flex-1 space-y-4 p-4 lg:p-6">
+          <main className="min-w-0 flex-1 space-y-4 overflow-y-auto p-4 lg:p-6">
             <FilterChips />
             <KpiCards />
 

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
  */
 export function SiteHeader() {
   return (
-    <header className="border-border bg-background/85 sticky top-0 z-30 flex h-14 items-center gap-4 border-b px-4 backdrop-blur-md">
+    <header className="border-border bg-background/85 z-30 flex h-14 shrink-0 items-center gap-4 border-b px-4 backdrop-blur-md">
       <div className="flex items-center gap-2.5">
         <div className="bg-primary text-primary-foreground font-heading grid size-8 place-items-center rounded-md text-lg font-semibold">
           L

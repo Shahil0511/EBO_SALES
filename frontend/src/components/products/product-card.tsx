@@ -44,7 +44,7 @@ export function ProductCard({
             alt={product.productCode}
             loading="lazy"
             onError={() => setImgError(true)}
-            className="size-full object-cover transition-transform group-hover:scale-105"
+            className="size-full object-contain transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="text-muted-foreground grid size-full place-items-center font-mono text-xs">

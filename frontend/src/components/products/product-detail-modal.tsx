@@ -95,7 +95,7 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
                         src={data.imageUrl}
                         alt={code}
                         onError={() => setImgError(true)}
-                        className="size-full object-cover"
+                        className="size-full object-contain"
                       />
                     ) : (
                       <div className="text-muted-foreground grid size-full place-items-center font-mono text-xs">
