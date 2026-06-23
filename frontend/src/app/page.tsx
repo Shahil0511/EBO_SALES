@@ -6,10 +6,7 @@ import { FilterRail } from "@/components/filters/filter-rail";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
 import { ProductGallery } from "@/components/products/product-gallery";
-
-const PLACEHOLDERS = [
-  { title: "Transactions", milestone: "F10", span: "lg:col-span-12", height: "h-80" },
-];
+import { TransactionsTable } from "@/components/transactions/transactions-table";
 
 export default function DashboardPage() {
   return (
@@ -57,24 +54,7 @@ export default function DashboardPage() {
 
             <ProductGallery />
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              {PLACEHOLDERS.map((section) => (
-                <section
-                  key={section.title}
-                  className={`border-border bg-card flex flex-col rounded-xl border p-4 ${section.span} ${section.height}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-heading text-sm font-semibold">{section.title}</h3>
-                    <span className="text-muted-foreground font-mono text-[11px]">
-                      {section.milestone}
-                    </span>
-                  </div>
-                  <div className="border-border text-muted-foreground mt-3 flex flex-1 items-center justify-center rounded-lg border border-dashed text-xs">
-                    wired in {section.milestone}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <TransactionsTable />
           </main>
         </div>
       </Suspense>

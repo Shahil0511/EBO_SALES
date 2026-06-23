@@ -1,5 +1,7 @@
-import { Download, Search } from "lucide-react";
+import { Download } from "lucide-react";
+import { Suspense } from "react";
 
+import { GlobalSearch } from "@/components/search/global-search";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -21,14 +23,9 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <div className="relative mx-auto hidden w-full max-w-md items-center md:flex">
-        <Search className="text-muted-foreground pointer-events-none absolute left-3 size-4" />
-        <input
-          disabled
-          placeholder="Search product code, SKU or invoice…"
-          className="border-border bg-card text-foreground placeholder:text-muted-foreground/70 h-9 w-full rounded-full border pr-3 pl-9 text-sm focus:outline-none disabled:opacity-70"
-        />
-      </div>
+      <Suspense fallback={<div className="mx-auto hidden h-9 w-full max-w-md md:block" />}>
+        <GlobalSearch />
+      </Suspense>
 
       <div className="ml-auto flex items-center gap-3">
         <span className="border-border bg-card text-muted-foreground hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs sm:flex">
