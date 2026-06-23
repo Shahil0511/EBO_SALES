@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -8,7 +8,7 @@ import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type TrendBucket, useTrend } from "@/lib/api/hooks/use-trend";
 import { inr, inrFull, num } from "@/lib/format";
-import { DURATION_MS } from "@/lib/motion/tokens";
+import { DURATION_MS, SPRING } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -72,20 +72,25 @@ export function TrendChart({ className }: { className?: string }) {
             <AnimatedNumber value={total} format={inr} /> net
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
           {(["day", "week"] as const).map((b) => (
             <button
               key={b}
               type="button"
               onClick={() => setBucket(b)}
               className={cn(
-                "rounded-md px-2 py-1 text-xs capitalize",
-                bucket === b
-                  ? "bg-primary text-primary-foreground"
-                  : "border-border hover:bg-muted border",
+                "relative rounded-md px-2.5 py-1 text-xs capitalize transition-colors",
+                bucket === b ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {b}
+              {bucket === b && (
+                <m.span
+                  layoutId="trendToggle"
+                  className="bg-primary absolute inset-0 rounded-md"
+                  transition={SPRING.layout}
+                />
+              )}
+              <span className="relative z-10">{b}</span>
             </button>
           ))}
         </div>

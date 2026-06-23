@@ -1,11 +1,13 @@
 "use client";
 
 import { SlidersHorizontal, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { FilterRailContent } from "@/components/filters/filter-rail-content";
+import { DURATION, SPRING } from "@/lib/motion/tokens";
 
-/** Mobile-only: a floating button that opens the filter rail as a slide-in drawer. */
+/** Mobile-only: a floating button that opens the filter rail as a spring slide-in drawer. */
 export function MobileFilters() {
   const [open, setOpen] = useState(false);
 
@@ -29,33 +31,46 @@ export function MobileFilters() {
         <SlidersHorizontal className="size-5" />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/40"
+      {/* Backdrop fades, panel slides (spring → MotionConfig drops the x-slide under reduced motion). */}
+      <AnimatePresence>
+        {open && (
+          <m.div
+            key="drawer-backdrop"
+            className="fixed inset-0 z-40 bg-black/40"
             onClick={() => setOpen(false)}
             role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.overlay }}
           />
-          <div
+        )}
+        {open && (
+          <m.div
+            key="drawer-panel"
             role="dialog"
             aria-modal="true"
             aria-label="Filters"
-            className="bg-sidebar absolute inset-y-0 left-0 w-80 max-w-[85%] overflow-y-auto shadow-xl"
+            className="bg-sidebar fixed inset-y-0 left-0 z-50 w-80 max-w-[85%] overflow-y-auto shadow-xl"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={SPRING.drawer}
           >
             <div className="flex justify-end p-2">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close filters"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground transition-transform hover:scale-110"
               >
                 <X className="size-5" />
               </button>
             </div>
             <FilterRailContent />
-          </div>
-        </div>
-      )}
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

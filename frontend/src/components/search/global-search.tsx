@@ -1,9 +1,11 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import { AnimatePresence, m } from "motion/react";
 import { useId, useState } from "react";
 
 import { useSearch } from "@/lib/api/hooks/use-search";
+import { DURATION, EASE } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -96,13 +98,19 @@ export function GlobalSearch() {
         )}
       </form>
 
-      {showList && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="border-border bg-card absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border py-1 shadow-lg"
-        >
-          {hits.map((h, i) => (
+      <AnimatePresence>
+        {showList && (
+          <m.ul
+            key="suggestions"
+            id={listId}
+            role="listbox"
+            className="border-border bg-card absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border py-1 shadow-lg"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: DURATION.overlay, ease: EASE.out }}
+          >
+            {hits.map((h, i) => (
             <li key={`${h.kind}-${h.value}`} id={`${listId}-opt-${i}`} role="option" aria-selected={i === active}>
               <button
                 type="button"
@@ -117,9 +125,10 @@ export function GlobalSearch() {
                 <span className="text-muted-foreground text-[11px]">{KIND_LABEL[h.kind]}</span>
               </button>
             </li>
-          ))}
-        </ul>
-      )}
+            ))}
+          </m.ul>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

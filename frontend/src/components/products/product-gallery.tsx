@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { m } from "motion/react";
 import { useState } from "react";
 
 import { Reveal } from "@/components/motion/reveal";
@@ -9,6 +10,7 @@ import { ProductDetailModal } from "@/components/products/product-detail-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ProductRankBy, useProducts } from "@/lib/api/hooks/use-products";
 import { num } from "@/lib/format";
+import { SPRING } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -51,20 +53,25 @@ export function ProductGallery({ className }: { className?: string }) {
           <h3 className="font-heading text-sm font-semibold">Products</h3>
           <p className="text-muted-foreground text-xs">{num(total)} with sales in range</p>
         </div>
-        <div className="flex gap-1">
+        <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setRankBy(t.key)}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs",
-                rankBy === t.key
-                  ? "bg-primary text-primary-foreground"
-                  : "border-border hover:bg-muted border",
+                "relative rounded-md px-2.5 py-1 text-xs transition-colors",
+                rankBy === t.key ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t.label}
+              {rankBy === t.key && (
+                <m.span
+                  layoutId="productRank"
+                  className="bg-primary absolute inset-0 rounded-md"
+                  transition={SPRING.layout}
+                />
+              )}
+              <span className="relative z-10">{t.label}</span>
             </button>
           ))}
         </div>
