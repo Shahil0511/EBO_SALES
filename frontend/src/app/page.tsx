@@ -1,37 +1,44 @@
-"use client";
+import { FilterRail } from "@/components/layout/filter-rail";
+import { SiteHeader } from "@/components/layout/site-header";
 
-import { useEffect, useState } from "react";
+// F2 dashboard shell: header + filter rail + the content grid. Each section is a
+// placeholder card that the real components replace in F7–F10.
+const SECTIONS = [
+  { title: "KPIs", milestone: "F7", span: "lg:col-span-12", height: "h-28" },
+  { title: "Revenue trend", milestone: "F8", span: "lg:col-span-8", height: "h-64" },
+  { title: "Category · Brand · Channel", milestone: "F8", span: "lg:col-span-4", height: "h-64" },
+  { title: "Product gallery", milestone: "F9", span: "lg:col-span-12", height: "h-72" },
+  { title: "Transactions", milestone: "F10", span: "lg:col-span-12", height: "h-80" },
+];
 
-// F1 connectivity probe: the browser calls same-origin `/api/v1/health`, Next rewrites
-// it to the FastAPI backend, and we render the result. This page is temporary — F2
-// replaces it with the real dashboard shell.
-
-type Health = { status: string; database: string };
-type Probe = { state: "loading" } | { state: "ok"; data: Health } | { state: "error"; message: string };
-
-export default function Home() {
-  const [probe, setProbe] = useState<Probe>({ state: "loading" });
-
-  useEffect(() => {
-    fetch("/api/v1/health")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((data: Health) => setProbe({ state: "ok", data }))
-      .catch((e: Error) => setProbe({ state: "error", message: e.message }));
-  }, []);
-
+export default function DashboardPage() {
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-4 p-10 font-sans">
-      <h1 className="text-2xl font-semibold">LIBAS Sales Intelligence</h1>
-      <p className="text-zinc-600">
-        F1 — API proxy check (browser → Next rewrite → FastAPI <code>/api/v1/health</code>):
-      </p>
-      <pre className="rounded-md bg-zinc-100 p-4 text-sm">
-        {probe.state === "loading"
-          ? "checking…"
-          : probe.state === "ok"
-            ? JSON.stringify(probe.data, null, 2)
-            : `error: ${probe.message}  (is the backend running on :8000?)`}
-      </pre>
-    </main>
+    <div className="flex min-h-full flex-col">
+      <SiteHeader />
+      <div className="flex flex-1">
+        <FilterRail />
+        <main className="flex-1 space-y-5 p-4 lg:p-6">
+          <p className="text-muted-foreground text-sm">No filters · showing all line items</p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            {SECTIONS.map((section) => (
+              <section
+                key={section.title}
+                className={`border-border bg-card flex flex-col rounded-xl border p-4 ${section.span} ${section.height}`}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading text-sm font-semibold">{section.title}</h3>
+                  <span className="text-muted-foreground font-mono text-[11px]">
+                    {section.milestone}
+                  </span>
+                </div>
+                <div className="border-border text-muted-foreground mt-3 flex flex-1 items-center justify-center rounded-lg border border-dashed text-xs">
+                  wired in {section.milestone}
+                </div>
+              </section>
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
