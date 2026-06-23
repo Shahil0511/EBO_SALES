@@ -1,4 +1,6 @@
-import { FilterRail } from "@/components/layout/filter-rail";
+import { Suspense } from "react";
+
+import { FilterRail } from "@/components/filters/filter-rail";
 import { SiteHeader } from "@/components/layout/site-header";
 
 // F2 dashboard shell: header + filter rail + the content grid. Each section is a
@@ -16,7 +18,13 @@ export default function DashboardPage() {
     <div className="flex min-h-full flex-col">
       <SiteHeader />
       <div className="flex flex-1">
-        <FilterRail />
+        <Suspense
+          fallback={
+            <div className="border-border bg-sidebar hidden w-72 shrink-0 border-r lg:block" />
+          }
+        >
+          <FilterRail />
+        </Suspense>
         <main className="flex-1 space-y-5 p-4 lg:p-6">
           <p className="text-muted-foreground text-sm">No filters · showing all line items</p>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
