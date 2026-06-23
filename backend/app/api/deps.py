@@ -44,6 +44,8 @@ def get_store_repository(
 
 def get_store_service(
     repository: Annotated[StoreRepository, Depends(get_store_repository)],
+    sales_repository: Annotated[SalesRepository, Depends(get_sales_repository)],
 ) -> StoreService:
-    """Provide a StoreService wired with its repository."""
-    return StoreService(repository)
+    """Provide a StoreService wired with the store matview repo + the fact-table repo
+    (the latter powers the salesperson top-products query)."""
+    return StoreService(repository, sales_repository)

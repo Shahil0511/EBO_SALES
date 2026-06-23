@@ -33,6 +33,8 @@ class StoreMtdRow(APIModel):
     projection_sale: float  # pace projection for the full month
     wow_bill: int  # this-week bills − prior-week bills
     wow_bill_nsv: float  # this-week NSV
+    month_target: float | None = None  # full-month sales target (daily target × days in month)
+    achievement_pct: float | None = None  # MTD sale ÷ target-to-date × 100 (None if no target)
 
 
 class StoreLeaderboardResponse(APIModel):
@@ -90,8 +92,55 @@ class StoreDetailResponse(APIModel):
     basket: float
     op_day: int
     avg_sale: float
+    month_target: float | None = None  # this month's full target (None if no target)
+    achievement_pct: float | None = None  # this month's MTD sale ÷ target-to-date × 100
     trend: list[StoreDayPoint]
     salespeople: list[StorePersonRow]
+
+
+class SalespersonStoreOut(APIModel):
+    """One store a salesperson sells at, with their NSV/bills there."""
+
+    store_code: str
+    store_name: str | None
+    nsv: float
+    bill_cnt: int
+
+
+class SalespersonProductOut(APIModel):
+    """One of a salesperson's top products."""
+
+    product_code: str
+    image_url: str | None = None
+    nsv: float
+    qty: int
+
+
+class SalespersonDetailResponse(APIModel):
+    """One salesperson's detail: identity + KPIs + daily trend + their stores + top products."""
+
+    code: str
+    name: str | None
+    region: str | None
+    store_manager: str | None
+    primary_store: str | None
+    store_count: int
+    nsv: float
+    gsv: float
+    mrp: float
+    discount: float
+    disc_pct: float
+    bill_cnt: int
+    qty: float
+    returns: float
+    atv: float
+    asp: float
+    basket: float
+    op_day: int
+    avg_sale: float
+    trend: list[StoreDayPoint]
+    stores: list[SalespersonStoreOut]
+    top_products: list[SalespersonProductOut]
 
 
 class HierarchyRow(APIModel):

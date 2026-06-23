@@ -47,3 +47,19 @@ class EgStoreDay(Base):
     wow_bill: Mapped[int | None] = mapped_column(BigInteger)
     wow_bills_points: Mapped[int | None] = mapped_column(BigInteger)
     wow_bill_nsv: Mapped[float | None] = mapped_column(Float)
+
+
+class EboStoreTarget(Base):
+    """Read-only mapping of `ebo_store_target` — per-store sales targets by period (~16k rows).
+
+    For the current month, `target_type='Day'` rows give a per-day target over the month's
+    [start_date, end_date]. Joined to the matview on lower(trim(store_name)) — the target table
+    has case/spelling drift vs the store dimension, so an exact join would miss stores."""
+
+    __tablename__ = "ebo_store_target"
+
+    store_name: Mapped[str] = mapped_column(String, primary_key=True)
+    start_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    end_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    target_type: Mapped[str] = mapped_column(String, primary_key=True)
+    target: Mapped[float | None] = mapped_column(Float)

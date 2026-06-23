@@ -1,94 +1,105 @@
 "use client";
 
 import { FilterGroup } from "@/components/filters/filter-group";
+import { RangeCalendar } from "@/components/filters/range-calendar";
+import {
+  type DateRange,
+  activeFyValue,
+  activeMonthValue,
+  datePresets,
+  formatRangeLabel,
+  fyOptions,
+  fyRange,
+  monthRange,
+  recentMonths,
+} from "@/lib/dates";
+import { cn } from "@/lib/utils";
 
-type Range = { dateFrom: string; dateTo: string };
-
-function isoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function daysAgo(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
-}
-
-const PRESETS: { key: string; label: string; range: () => Range }[] = [
-  { key: "7", label: "7d", range: () => ({ dateFrom: isoDate(daysAgo(6)), dateTo: isoDate(new Date()) }) },
-  { key: "30", label: "30d", range: () => ({ dateFrom: isoDate(daysAgo(29)), dateTo: isoDate(new Date()) }) },
-  { key: "90", label: "90d", range: () => ({ dateFrom: isoDate(daysAgo(89)), dateTo: isoDate(new Date()) }) },
-  {
-    key: "mtd",
-    label: "Month",
-    range: () => {
-      const now = new Date();
-      return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) };
-    },
-  },
-  {
-    key: "ytd",
-    label: "Year",
-    range: () => {
-      const now = new Date();
-      return { dateFrom: isoDate(new Date(now.getFullYear(), 0, 1)), dateTo: isoDate(now) };
-    },
-  },
-];
-
-const inputClass =
-  "border-border bg-background h-8 min-w-0 flex-1 rounded-md border px-2 text-xs focus:outline-none";
+const selectClass =
+  "border-border bg-background h-8 min-w-0 rounded-md border px-1.5 text-xs focus:outline-none";
 
 export function DateRangeGroup({
   dateFrom,
   dateTo,
   onChange,
-}: {
-  dateFrom: string;
-  dateTo: string;
-  onChange: (range: Range) => void;
-}) {
+}: DateRange & { onChange: (r: DateRange) => void }) {
+  const range = { dateFrom, dateTo };
+  const presets = datePresets();
+  const months = recentMonths(18);
+  const fys = fyOptions(2021);
+
+  const activePreset = presets.find((p) => {
+    const r = p.range();
+    return r.dateFrom === dateFrom && r.dateTo === dateTo;
+  })?.key;
+  const monthVal = activeMonthValue(range);
+  const fyVal = activeFyValue(range);
+
   return (
     <FilterGroup title="Date range" defaultOpen>
-      <div className="mb-2 flex flex-wrap gap-1">
-        {PRESETS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => onChange(p.range())}
-            className="border-border hover:bg-muted rounded-full border px-2.5 py-1 text-xs"
+      <div className="space-y-2">
+        {/* Quick presets */}
+        <div className="flex flex-wrap gap-1">
+          {presets.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => onChange(p.range())}
+              aria-pressed={activePreset === p.key}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                activePreset === p.key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Pick a whole month / financial year */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <select
+            aria-label="Select month"
+            value={monthVal}
+            onChange={(e) => {
+              const m = months.find((x) => x.value === e.target.value);
+              if (m) onChange(monthRange(m.year, m.month0));
+            }}
+            className={selectClass}
           >
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <input
-          type="date"
-          aria-label="From date"
-          value={dateFrom}
-          max={dateTo}
-          onChange={(e) => {
-            const from = e.target.value;
-            onChange({ dateFrom: from, dateTo: from > dateTo ? from : dateTo });
-          }}
-          className={inputClass}
-        />
-        <span className="text-muted-foreground text-xs">→</span>
-        <input
-          type="date"
-          aria-label="To date"
-          value={dateTo}
-          min={dateFrom}
-          onChange={(e) => {
-            const to = e.target.value;
-            onChange({ dateFrom: to < dateFrom ? to : dateFrom, dateTo: to });
-          }}
-          className={inputClass}
-        />
+            <option value="" disabled>
+              Month…
+            </option>
+            {months.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Select financial year"
+            value={fyVal === "" ? "" : String(fyVal)}
+            onChange={(e) => {
+              if (e.target.value) onChange(fyRange(Number(e.target.value)));
+            }}
+            className={selectClass}
+          >
+            <option value="" disabled>
+              FY…
+            </option>
+            {fys.map((f) => (
+              <option key={f.startYear} value={f.startYear}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Current selection + the calendar for a custom range */}
+        <div className="text-foreground text-xs font-medium">{formatRangeLabel(range)}</div>
+        <RangeCalendar dateFrom={dateFrom} dateTo={dateTo} onChange={onChange} />
       </div>
     </FilterGroup>
   );

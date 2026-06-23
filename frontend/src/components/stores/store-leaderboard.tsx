@@ -24,6 +24,8 @@ type Row = {
   city: string | null;
   mtdSale: number;
   projectionSale: number;
+  monthTarget: number | null;
+  achievementPct: number | null;
   billCnt: number;
   qty: number;
   atv: number;
@@ -38,6 +40,8 @@ type SortKey =
   | "storeName"
   | "mtdSale"
   | "projectionSale"
+  | "monthTarget"
+  | "achievementPct"
   | "billCnt"
   | "qty"
   | "atv"
@@ -52,6 +56,8 @@ type Col = { key: SortKey; label: string; align?: "right"; render: (r: Row) => R
 const COLS: Col[] = [
   { key: "mtdSale", label: "MTD sale", align: "right", render: (r) => <span className="font-semibold">{inr(r.mtdSale)}</span> },
   { key: "projectionSale", label: "Projection", align: "right", render: (r) => inr(r.projectionSale) },
+  { key: "monthTarget", label: "Target", align: "right", render: (r) => (r.monthTarget != null ? inr(r.monthTarget) : "—") },
+  { key: "achievementPct", label: "Pace%", align: "right", render: (r) => <AchCell v={r.achievementPct} /> },
   { key: "billCnt", label: "Bills", align: "right", render: (r) => num(r.billCnt) },
   { key: "qty", label: "Qty", align: "right", render: (r) => num(r.qty) },
   { key: "atv", label: "ATV", align: "right", render: (r) => inr(r.atv) },
@@ -84,6 +90,19 @@ function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return <span>{dir === "asc" ? "▴" : "▾"}</span>;
 }
 
+/** Pace-to-date achievement (MTD ÷ target-to-date): green on/ahead of pace, red well behind.
+ * Tone is keyed off the *rounded* value so it never contradicts the number shown. */
+function AchCell({ v }: { v: number | null }) {
+  if (v == null) return <span className="text-muted-foreground">—</span>;
+  const r = Math.round(v);
+  const tone = r >= 100 ? "text-chart-3" : r < 80 ? "text-destructive" : "";
+  return (
+    <span className={cn("font-medium", tone)} title="MTD sale ÷ target-to-date">
+      {r}%
+    </span>
+  );
+}
+
 export function StoreLeaderboard() {
   const { filters } = useFilters();
   const { data, isLoading, isError } = useStoreLeaderboard();
@@ -97,11 +116,17 @@ export function StoreLeaderboard() {
 
   const items = (data?.items ?? []) as Row[];
   const sorted = [...items].sort((a, b) => {
-    const cmp =
-      sortKey === "storeName"
-        ? (a.storeName ?? "").localeCompare(b.storeName ?? "")
-        : (a[sortKey] as number) - (b[sortKey] as number);
-    return sortDir === "asc" ? cmp : -cmp;
+    if (sortKey === "storeName") {
+      const cmp = (a.storeName ?? "").localeCompare(b.storeName ?? "");
+      return sortDir === "asc" ? cmp : -cmp;
+    }
+    // Numeric: missing values (no target) always sink to the bottom, in both directions.
+    const av = a[sortKey] as number | null;
+    const bv = b[sortKey] as number | null;
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sortDir === "asc" ? av - bv : bv - av;
   });
 
   const onSort = (key: SortKey) => {

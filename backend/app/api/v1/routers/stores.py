@@ -11,7 +11,12 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import get_store_service
 from app.repositories.store_repository import HierarchyLevel
-from app.schemas.stores import HierarchyResponse, StoreDetailResponse, StoreLeaderboardResponse
+from app.schemas.stores import (
+    HierarchyResponse,
+    SalespersonDetailResponse,
+    StoreDetailResponse,
+    StoreLeaderboardResponse,
+)
 from app.services.store_service import StoreService
 
 router = APIRouter(prefix="/stores", tags=["stores"])
@@ -33,6 +38,17 @@ async def get_store_hierarchy(
 ) -> HierarchyResponse:
     """Current-month totals grouped by region / cluster / area-manager / regional-manager."""
     return await service.get_hierarchy(level)
+
+
+@router.get("/salesperson/{code}", response_model=SalespersonDetailResponse)
+async def get_salesperson_detail(
+    code: str,
+    date_from: Annotated[date, Query(alias="dateFrom")],
+    date_to: Annotated[date, Query(alias="dateTo")],
+    service: Annotated[StoreService, Depends(get_store_service)],
+) -> SalespersonDetailResponse:
+    """One salesperson's detail over the window: KPIs + daily trend + stores + top products."""
+    return await service.get_salesperson_detail(code, date_from, date_to)
 
 
 @router.get("/{store_code}", response_model=StoreDetailResponse)

@@ -30,12 +30,14 @@ type TxnRow = {
   productCode: string | null;
   sku: string | null;
   store: string | null;
+  storeCode: string | null;
   channel: string | null;
   category: string | null;
   qty: number;
   mrp: number;
   net: number;
   salesperson: string | null;
+  salespersonCode: string | null;
   customer: string | null;
 };
 
@@ -78,6 +80,20 @@ const COLUMNS: Column[] = [
 
 const NUMERIC: TransactionSortKey[] = ["date", "qty", "mrp", "discount", "net"];
 const PAGE_SIZES = [25, 50, 100];
+
+/** A cell-level link that navigates to an entity page WITHOUT triggering the row's invoice
+ * navigation (stopPropagation) and stays keyboard-reachable. */
+function CellLink({ href, mono, children }: { href: string; mono?: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className={cn("hover:text-primary hover:underline", mono && "font-mono")}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function TransactionsTable({
   className,
@@ -204,28 +220,47 @@ export function TransactionsTable({
                         href && "cursor-pointer",
                       )}
                     >
-                      {COLUMNS.map((c) => (
-                        <td
-                          key={c.label}
-                          className={cn(
-                            "max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap",
-                            c.align === "right" && "text-right",
-                          )}
-                        >
-                          {c.label === "Invoice" && href ? (
-                            // A real link → keyboard-reachable + announced; row onClick stays for mouse.
-                            <Link
-                              href={href}
-                              onClick={(e) => e.stopPropagation()}
-                              className="hover:text-primary font-mono hover:underline"
-                            >
+                      {COLUMNS.map((c) => {
+                        // Make entity cells navigable (keyboard-reachable links); the row's
+                        // own onClick still opens the invoice for a plain row click.
+                        let content: React.ReactNode = c.cell(r);
+                        if (c.label === "Invoice" && href) {
+                          content = (
+                            <CellLink href={href} mono>
                               {r.invoiceNo}
-                            </Link>
-                          ) : (
-                            c.cell(r)
-                          )}
-                        </td>
-                      ))}
+                            </CellLink>
+                          );
+                        } else if (c.label === "Product" && r.productCode) {
+                          content = (
+                            <CellLink href={`/products?code=${encodeURIComponent(r.productCode)}&${qs}`} mono>
+                              {r.productCode}
+                            </CellLink>
+                          );
+                        } else if (c.label === "Store" && r.storeCode) {
+                          content = (
+                            <CellLink href={`/stores?code=${encodeURIComponent(r.storeCode)}&${qs}`}>
+                              {r.store}
+                            </CellLink>
+                          );
+                        } else if (c.label === "Staff" && r.salespersonCode) {
+                          content = (
+                            <CellLink href={`/staff?code=${encodeURIComponent(r.salespersonCode)}&${qs}`}>
+                              {r.salesperson}
+                            </CellLink>
+                          );
+                        }
+                        return (
+                          <td
+                            key={c.label}
+                            className={cn(
+                              "max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap",
+                              c.align === "right" && "text-right",
+                            )}
+                          >
+                            {content}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })

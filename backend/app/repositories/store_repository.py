@@ -13,7 +13,7 @@ from typing import Literal
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import InstrumentedAttribute
 
-from app.models import EgStoreDay
+from app.models import EboStoreTarget, EgStoreDay
 from app.repositories.base import BaseRepository
 
 HierarchyLevel = Literal["region", "cluster", "area_manager", "regional_manager"]
@@ -106,6 +106,33 @@ class HierarchyRaw:
     store_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class SalespersonSummaryRaw:
+    """One salesperson's aggregate KPIs over a date range (may span several stores)."""
+
+    code: str
+    name: str | None
+    region: str | None
+    store_manager: str | None
+    nsv: Decimal
+    gsv: Decimal
+    mrp: Decimal
+    discount: Decimal
+    bill_cnt: int
+    qty: Decimal
+    returns: Decimal
+    op_day: int
+    store_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class SalespersonStoreRaw:
+    store_code: str
+    store_name: str | None
+    nsv: Decimal
+    bill_cnt: int
+
+
 class StoreRepository(BaseRepository):
     """Store leaderboard + per-store detail and (later) hierarchy rollups."""
 
@@ -195,6 +222,32 @@ class StoreRepository(BaseRepository):
                 )
             )
         return max_bucket, out
+
+    async def data_as_of(self) -> date | None:
+        """Latest day present in the matview (data freshness)."""
+        return await self.session.scalar(select(func.max(EgStoreDay.bucket)))
+
+    async def current_month_targets(self, month_start: date) -> dict[str, float]:
+        """Per-store DAILY sales target for the month containing `month_start`, keyed on the
+        normalized store name (lower+trim) — the target table has case/spelling drift vs the
+        matview, so a normalized key maximizes matches."""
+        t = EboStoreTarget
+        stmt = select(t.store_name, t.target).where(
+            t.target_type == "Day",
+            t.start_date <= month_start,
+            t.end_date >= month_start,
+        )
+        rows = (await self.session.execute(stmt)).all()
+        # Several physical rows can normalize to the same key (case/spelling drift, overlapping
+        # periods). Keep the largest matching target deterministically rather than last-row-wins.
+        out: dict[str, float] = {}
+        for r in rows:
+            if r.store_name and r.target is not None:
+                key = r.store_name.strip().lower()
+                target = float(r.target)
+                if key not in out or target > out[key]:
+                    out[key] = target
+        return out
 
     async def hierarchy_rollup(
         self, level: HierarchyLevel
@@ -333,5 +386,96 @@ class StoreRepository(BaseRepository):
         rows = (await self.session.execute(stmt)).all()
         return [
             StorePersonRaw(code=r.code, name=r.name, nsv=r.nsv, bill_cnt=int(r.bill_cnt), qty=r.qty)
+            for r in rows
+        ]
+
+    async def salesperson_summary(
+        self, code: str, date_from: date, date_to: date
+    ) -> SalespersonSummaryRaw | None:
+        """One salesperson's aggregate KPIs over [date_from, date_to]. None if no data."""
+        g = EgStoreDay
+        stmt = select(
+            func.max(g.sales_person_name).label("name"),
+            func.max(g.region).label("region"),
+            func.max(g.store_manager).label("store_manager"),
+            func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+            func.coalesce(func.sum(g.gsv), 0).label("gsv"),
+            func.coalesce(func.sum(g.mrp), 0).label("mrp"),
+            func.coalesce(func.sum(g.discount_value), 0).label("discount"),
+            func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+            func.coalesce(func.sum(g.qty), 0).label("qty"),
+            func.coalesce(func.sum(g.returns), 0).label("returns"),
+            func.count(distinct(g.bucket)).label("op_day"),
+            func.count(distinct(g.store_code)).label("store_count"),
+        ).where(g.sales_person_code == code, g.bucket >= date_from, g.bucket <= date_to)
+
+        r = (await self.session.execute(stmt)).one()
+        if int(r.op_day) == 0:
+            return None
+        return SalespersonSummaryRaw(
+            code=code,
+            name=r.name,
+            region=r.region,
+            store_manager=r.store_manager,
+            nsv=r.nsv,
+            gsv=r.gsv,
+            mrp=r.mrp,
+            discount=r.discount,
+            bill_cnt=int(r.bill_cnt),
+            qty=r.qty,
+            returns=r.returns,
+            op_day=int(r.op_day),
+            store_count=int(r.store_count),
+        )
+
+    async def salesperson_daily(
+        self, code: str, date_from: date, date_to: date
+    ) -> list[StoreDayRaw]:
+        """Daily NSV/bills/qty/returns for one salesperson over the range, ordered by date."""
+        g = EgStoreDay
+        stmt = (
+            select(
+                g.bucket,
+                func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+                func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+                func.coalesce(func.sum(g.qty), 0).label("qty"),
+                func.coalesce(func.sum(g.returns), 0).label("returns"),
+            )
+            .where(g.sales_person_code == code, g.bucket >= date_from, g.bucket <= date_to)
+            .group_by(g.bucket)
+            .order_by(g.bucket)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            StoreDayRaw(
+                bucket=r.bucket, nsv=r.nsv, bill_cnt=int(r.bill_cnt), qty=r.qty, returns=r.returns
+            )
+            for r in rows
+        ]
+
+    async def salesperson_stores(
+        self, code: str, date_from: date, date_to: date
+    ) -> list[SalespersonStoreRaw]:
+        """Per-store split for one salesperson over the range, ranked by NSV."""
+        g = EgStoreDay
+        stmt = (
+            select(
+                g.store_code,
+                func.max(g.store_name).label("store_name"),
+                func.coalesce(func.sum(g.nsv), 0).label("nsv"),
+                func.coalesce(func.sum(g.bill_cnt), 0).label("bill_cnt"),
+            )
+            .where(g.sales_person_code == code, g.bucket >= date_from, g.bucket <= date_to)
+            .group_by(g.store_code)
+            .order_by(func.coalesce(func.sum(g.nsv), 0).desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            SalespersonStoreRaw(
+                store_code=r.store_code,
+                store_name=r.store_name,
+                nsv=r.nsv,
+                bill_cnt=int(r.bill_cnt),
+            )
             for r in rows
         ]

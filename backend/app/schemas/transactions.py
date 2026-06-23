@@ -32,6 +32,7 @@ class TransactionRowOut(APIModel):
     product_code: str | None
     sku: str | None
     store: str | None
+    store_code: str | None
     channel: str | None
     category: str | None
     brand: str | None
@@ -40,6 +41,7 @@ class TransactionRowOut(APIModel):
     discount: float
     net: float
     salesperson: str | None
+    salesperson_code: str | None
     customer: str | None
     mobile: str | None
     first_bill_date: date | None

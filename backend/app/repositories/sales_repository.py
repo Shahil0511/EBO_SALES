@@ -17,7 +17,7 @@ Conventions (SPEC):
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -271,12 +271,20 @@ class SalespersonCount:
 
 
 @dataclass(frozen=True, slots=True)
+class SalespersonProductRaw:
+    product_code: str
+    nsv: Decimal
+    qty: int
+
+
+@dataclass(frozen=True, slots=True)
 class TransactionRow:
     invoice_date: datetime
     invoice_no: str | None
     product_code: str | None
     sku: str | None
     store: str | None
+    store_code: str | None
     channel: str | None
     category: str | None
     brand: str | None
@@ -285,6 +293,7 @@ class TransactionRow:
     discount: float | None
     net: float | None
     salesperson: str | None
+    salesperson_code: str | None
     customer: str | None
     mobile: str | None
     first_bill_date: date | None
@@ -298,6 +307,7 @@ _TXN_COLUMNS = (
     OlabiSales.product_code,
     OlabiSales.product_sku_code,
     OlabiSales.invoice_associate_name,
+    OlabiSales.invoice_associate_code,
     OlabiSales.business_channel_code,
     OlabiSales.category_name,
     OlabiSales.brand_name,
@@ -306,6 +316,7 @@ _TXN_COLUMNS = (
     OlabiSales.invoice_discount_value,
     OlabiSales.nett_invoice_value,
     OlabiSales.sales_person_name,
+    OlabiSales.sales_person_code,
     OlabiSales.consumer_name,
     OlabiSales.consumer_mobile,
     OlabiSales.consumer_first_bill_date,
@@ -319,6 +330,7 @@ def _to_transaction_row(r: Any) -> TransactionRow:
         product_code=r.product_code,
         sku=r.product_sku_code,
         store=r.invoice_associate_name,
+        store_code=r.invoice_associate_code,
         channel=r.business_channel_code,
         category=r.category_name,
         brand=r.brand_name,
@@ -327,6 +339,7 @@ def _to_transaction_row(r: Any) -> TransactionRow:
         discount=r.invoice_discount_value,
         net=r.nett_invoice_value,
         salesperson=r.sales_person_name,
+        salesperson_code=r.sales_person_code,
         customer=r.consumer_name,
         mobile=r.consumer_mobile,
         first_bill_date=r.consumer_first_bill_date,
@@ -559,6 +572,7 @@ class SalesRepository(BaseRepository):
             OlabiSales.product_code,
             OlabiSales.product_sku_code,
             OlabiSales.invoice_associate_name,
+            OlabiSales.invoice_associate_code,
             OlabiSales.business_channel_code,
             OlabiSales.category_name,
             OlabiSales.brand_name,
@@ -567,6 +581,7 @@ class SalesRepository(BaseRepository):
             OlabiSales.invoice_discount_value,
             OlabiSales.nett_invoice_value,
             OlabiSales.sales_person_name,
+            OlabiSales.sales_person_code,
             OlabiSales.consumer_name,
             OlabiSales.consumer_mobile,
             OlabiSales.consumer_first_bill_date,
@@ -595,6 +610,7 @@ class SalesRepository(BaseRepository):
                 product_code=r.product_code,
                 sku=r.product_sku_code,
                 store=r.invoice_associate_name,
+                store_code=r.invoice_associate_code,
                 channel=r.business_channel_code,
                 category=r.category_name,
                 brand=r.brand_name,
@@ -603,6 +619,7 @@ class SalesRepository(BaseRepository):
                 discount=r.invoice_discount_value,
                 net=r.nett_invoice_value,
                 salesperson=r.sales_person_name,
+                salesperson_code=r.sales_person_code,
                 customer=r.consumer_name,
                 mobile=r.consumer_mobile,
                 first_bill_date=r.consumer_first_bill_date,
@@ -634,6 +651,36 @@ class SalesRepository(BaseRepository):
             stmt = stmt.where(OlabiSales.invoice_associate_name == store)
         rows = (await self.session.execute(stmt)).all()
         return [_to_transaction_row(r) for r in rows]
+
+    async def salesperson_top_products(
+        self, sales_person_code: str, date_from: date, date_to: date, limit: int
+    ) -> list[SalespersonProductRaw]:
+        """Top products by net revenue for one salesperson over [date_from, date_to]. Uses the
+        fact table (the matview has no product grain); date-bounded so chunks are pruned."""
+        start = datetime.combine(date_from, time.min)
+        end = datetime.combine(date_to + timedelta(days=1), time.min)
+        nsv = func.coalesce(func.sum(cast(OlabiSales.nett_invoice_value, Numeric(14, 2))), 0)
+        stmt = (
+            select(
+                OlabiSales.product_code,
+                nsv.label("nsv"),
+                func.coalesce(func.sum(OlabiSales.total_sales_qty), 0).label("qty"),
+            )
+            .where(
+                OlabiSales.sales_person_code == sales_person_code,
+                OlabiSales.invoice_date >= start,
+                OlabiSales.invoice_date < end,
+                OlabiSales.product_code.isnot(None),
+            )
+            .group_by(OlabiSales.product_code)
+            .order_by(nsv.desc())
+            .limit(limit)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            SalespersonProductRaw(product_code=r.product_code, nsv=r.nsv, qty=int(r.qty or 0))
+            for r in rows
+        ]
 
     async def search(
         self, date_from: datetime, date_to: datetime, term: str, per_kind: int
@@ -730,6 +777,7 @@ class SalesRepository(BaseRepository):
             OlabiSales.product_code,
             OlabiSales.product_sku_code,
             OlabiSales.invoice_associate_name,
+            OlabiSales.invoice_associate_code,
             OlabiSales.business_channel_code,
             OlabiSales.category_name,
             OlabiSales.brand_name,
@@ -738,6 +786,7 @@ class SalesRepository(BaseRepository):
             OlabiSales.invoice_discount_value,
             OlabiSales.nett_invoice_value,
             OlabiSales.sales_person_name,
+            OlabiSales.sales_person_code,
             OlabiSales.consumer_name,
             OlabiSales.consumer_mobile,
             OlabiSales.consumer_first_bill_date,
@@ -752,6 +801,7 @@ class SalesRepository(BaseRepository):
                 product_code=r.product_code,
                 sku=r.product_sku_code,
                 store=r.invoice_associate_name,
+                store_code=r.invoice_associate_code,
                 channel=r.business_channel_code,
                 category=r.category_name,
                 brand=r.brand_name,
@@ -760,6 +810,7 @@ class SalesRepository(BaseRepository):
                 discount=r.invoice_discount_value,
                 net=r.nett_invoice_value,
                 salesperson=r.sales_person_name,
+                salesperson_code=r.sales_person_code,
                 customer=r.consumer_name,
                 mobile=r.consumer_mobile,
                 first_bill_date=r.consumer_first_bill_date,

@@ -315,6 +315,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/salesperson/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Salesperson Detail
+         * @description One salesperson's detail over the window: KPIs + daily trend + stores + top products.
+         */
+        get: operations["get_salesperson_detail_api_v1_stores_salesperson__code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_code}": {
         parameters: {
             query?: never;
@@ -598,6 +618,56 @@ export interface components {
             /** Variants */
             variants: components["schemas"]["VariantItem"][];
         };
+        /**
+         * SalespersonDetailResponse
+         * @description One salesperson's detail: identity + KPIs + daily trend + their stores + top products.
+         */
+        SalespersonDetailResponse: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string | null;
+            /** Region */
+            region: string | null;
+            /** Storemanager */
+            storeManager: string | null;
+            /** Primarystore */
+            primaryStore: string | null;
+            /** Storecount */
+            storeCount: number;
+            /** Nsv */
+            nsv: number;
+            /** Gsv */
+            gsv: number;
+            /** Mrp */
+            mrp: number;
+            /** Discount */
+            discount: number;
+            /** Discpct */
+            discPct: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Returns */
+            returns: number;
+            /** Atv */
+            atv: number;
+            /** Asp */
+            asp: number;
+            /** Basket */
+            basket: number;
+            /** Opday */
+            opDay: number;
+            /** Avgsale */
+            avgSale: number;
+            /** Trend */
+            trend: components["schemas"]["StoreDayPoint"][];
+            /** Stores */
+            stores: components["schemas"]["SalespersonStoreOut"][];
+            /** Topproducts */
+            topProducts: components["schemas"]["SalespersonProductOut"][];
+        };
         /** SalespersonOption */
         SalespersonOption: {
             /** Code */
@@ -606,6 +676,34 @@ export interface components {
             name: string | null;
             /** Count */
             count: number;
+        };
+        /**
+         * SalespersonProductOut
+         * @description One of a salesperson's top products.
+         */
+        SalespersonProductOut: {
+            /** Productcode */
+            productCode: string;
+            /** Imageurl */
+            imageUrl?: string | null;
+            /** Nsv */
+            nsv: number;
+            /** Qty */
+            qty: number;
+        };
+        /**
+         * SalespersonStoreOut
+         * @description One store a salesperson sells at, with their NSV/bills there.
+         */
+        SalespersonStoreOut: {
+            /** Storecode */
+            storeCode: string;
+            /** Storename */
+            storeName: string | null;
+            /** Nsv */
+            nsv: number;
+            /** Billcnt */
+            billCnt: number;
         };
         /** SalespersonsResponse */
         SalespersonsResponse: {
@@ -701,6 +799,10 @@ export interface components {
             opDay: number;
             /** Avgsale */
             avgSale: number;
+            /** Monthtarget */
+            monthTarget?: number | null;
+            /** Achievementpct */
+            achievementPct?: number | null;
             /** Trend */
             trend: components["schemas"]["StoreDayPoint"][];
             /** Salespeople */
@@ -771,6 +873,10 @@ export interface components {
             wowBill: number;
             /** Wowbillnsv */
             wowBillNsv: number;
+            /** Monthtarget */
+            monthTarget?: number | null;
+            /** Achievementpct */
+            achievementPct?: number | null;
         };
         /** StoreOptionOut */
         StoreOptionOut: {
@@ -839,6 +945,8 @@ export interface components {
             sku: string | null;
             /** Store */
             store: string | null;
+            /** Storecode */
+            storeCode: string | null;
             /** Channel */
             channel: string | null;
             /** Category */
@@ -855,6 +963,8 @@ export interface components {
             net: number;
             /** Salesperson */
             salesperson: string | null;
+            /** Salespersoncode */
+            salespersonCode: string | null;
             /** Customer */
             customer: string | null;
             /** Mobile */
@@ -1488,6 +1598,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HierarchyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_salesperson_detail_api_v1_stores_salesperson__code__get: {
+        parameters: {
+            query: {
+                dateFrom: string;
+                dateTo: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalespersonDetailResponse"];
                 };
             };
             /** @description Validation Error */
