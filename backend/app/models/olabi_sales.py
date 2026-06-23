@@ -35,27 +35,27 @@ class OlabiSales(Base):
     # ── Product dimensions ────────────────────────────────────────────────────
     brand_name: Mapped[str | None] = mapped_column(String)
     category_name: Mapped[str | None] = mapped_column(String)
-    product_code: Mapped[str | None] = mapped_column(String)               # parent style
+    product_code: Mapped[str | None] = mapped_column(String)  # parent style
     product_sku_code: Mapped[str | None] = mapped_column(String, primary_key=True)  # variant
 
     # ── Measures (money is REAL/float; qty is NUMERIC → Decimal) ──────────────
-    total_sales_qty: Mapped[Decimal | None] = mapped_column(Numeric)        # < 0 ⇒ return
+    total_sales_qty: Mapped[Decimal | None] = mapped_column(Numeric)  # < 0 ⇒ return
     unit_mrp: Mapped[float | None] = mapped_column(Float)
     invoice_mrp_value: Mapped[float | None] = mapped_column(Float)
     invoice_discount_value: Mapped[float | None] = mapped_column(Float)
     invoice_basic_value: Mapped[float | None] = mapped_column(Float)
     invoice_tax_value: Mapped[float | None] = mapped_column(Float)
-    nett_invoice_value: Mapped[float | None] = mapped_column(Float)         # the revenue measure
+    nett_invoice_value: Mapped[float | None] = mapped_column(Float)  # the revenue measure
 
     # ── Invoice / channel / staff ─────────────────────────────────────────────
     invoice_no: Mapped[str] = mapped_column(String, primary_key=True)
-    business_channel_code: Mapped[str | None] = mapped_column(String)       # BM / EC
-    sales_person_code: Mapped[str | None] = mapped_column(String)           # blank on EC
+    business_channel_code: Mapped[str | None] = mapped_column(String)  # BM / EC
+    sales_person_code: Mapped[str | None] = mapped_column(String)  # blank on EC
     sales_person_name: Mapped[str | None] = mapped_column(String)
 
     # ── Customer (PII — must be masked in logs) ───────────────────────────────
     consumer_name: Mapped[str | None] = mapped_column(String)
-    consumer_mobile: Mapped[str | None] = mapped_column(String)             # distinct-customer key
+    consumer_mobile: Mapped[str | None] = mapped_column(String)  # distinct-customer key
     consumer_e_mail: Mapped[str | None] = mapped_column(String)
     consumer_pincode: Mapped[str | None] = mapped_column(String)
     consumer_first_bill_date: Mapped[date | None] = mapped_column(Date)

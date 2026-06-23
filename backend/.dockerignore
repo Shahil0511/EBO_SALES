@@ -1,0 +1,26 @@
+# Keep the build context (and image) small + secret-free.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Secrets + local config: NEVER copy .env into the image (compose injects env at runtime)
+.env
+*.env
+!.env.example
+
+# Data dumps, docs, VCS, editor noise
+*.csv
+*.md
+docs/
+.git/
+.gitignore
+.vscode/
+.idea/
+tests/
+Dockerfile
+docker-compose.yml
+nginx/

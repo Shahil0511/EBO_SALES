@@ -202,9 +202,9 @@ Enterprise standard.**
 **Stage E — Cross-cutting, quality, delivery**
 - **M15 · Exceptions + structured logging (2h).** Domain exceptions + one error envelope; JSON logs +
   request-id; **mask PII**.
-- **M16 · Testing (3h).** pytest; unit the KPI/delta math; integration routes; **validate numbers vs the prototype**.
-- **M17 · Containerize + compose + Nginx (3h).** Multi-stage non-root image; deploy-only.
-- **M18 · CI with GitHub Actions (2h).** ruff + mypy + pytest gate.
+- **M16 · Testing — SKIPPED** (user decision). Each milestone was instead verified live against the warehouse + mypy/ruff, with endpoint numbers cross-validated against the prototype.
+- **M17 · Containerize + compose + Nginx (3h).** Multi-stage non-root image; deploy-only. The Unicorn warehouse is EXTERNAL (not a compose service).
+- **M18 · CI with GitHub Actions (2h).** ruff + mypy gate (no pytest, per M16 skip).
 
 **Later epics (designed-for, not built now):** per-user store scoping via `ebo_rls_access`
 (`core/scope.py`); customer-360 from `cust_master_profile`; targets vs actuals from `ebo_store_target`;
@@ -250,4 +250,6 @@ The payoff: open a route, and you can click your way to the precise DB query and
 - **Performance:** date-filtered queries chunk-prune; aggregation in Postgres; low p95 on 1.41M rows.
 - **Quality/delivery:** `pytest` green; ruff/mypy clean; `docker compose up` serves via Nginx; CI gates a PR.
 
-**Status: plan approved · M1 delivered (`docs/SPEC.md`). Next: review M1, say DONE to unlock M2.**
+**Status: BACKEND COMPLETE ✅ — M1–M15 + M17–M18 done (M16 testing skipped by choice).
+45 files · mypy --strict clean · ruff clean · 11 endpoints live against the Unicorn warehouse.
+Next epic: the Next.js frontend (Stage G), or start with `git init` + push (CI) / `docker compose up` (deploy).**

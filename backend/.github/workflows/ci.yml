@@ -1,0 +1,47 @@
+# CI quality gate. Runs on every push to main and on every PR.
+# Mirrors exactly what we run locally: ruff format check + ruff lint + mypy.
+# (No pytest — automated tests were intentionally skipped for this project.)
+#
+# NOTE: GitHub Actions only runs workflows found at the REPOSITORY ROOT under
+# .github/workflows/. This assumes `backend/` is the repo root. If instead the repo
+# root is the parent folder, move this file to <repo-root>/.github/workflows/ and add
+#   defaults:
+#     run:
+#       working-directory: backend
+# to the job so the commands run inside backend/.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  quality:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff format check
+        run: ruff format --check app
+
+      - name: Ruff lint
+        run: ruff check app
+
+      - name: Mypy (strict)
+        run: mypy app

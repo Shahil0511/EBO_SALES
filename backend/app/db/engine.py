@@ -31,10 +31,10 @@ _READ_ONLY_SERVER_SETTINGS = {
 
 engine: AsyncEngine = create_async_engine(
     _settings.database_url,
-    pool_size=_settings.db_pool_size,       # steady-state connections kept open
+    pool_size=_settings.db_pool_size,  # steady-state connections kept open
     max_overflow=_settings.db_max_overflow,  # extra connections allowed under load
-    pool_pre_ping=True,                      # verify a connection is alive before use
-    pool_recycle=1800,                       # recycle connections older than 30 min
-    echo=False,                              # flip to True to log every SQL statement
+    pool_pre_ping=True,  # verify a connection is alive before use
+    pool_recycle=1800,  # recycle connections older than 30 min
+    echo=False,  # flip to True to log every SQL statement
     connect_args={"server_settings": _READ_ONLY_SERVER_SETTINGS},
 )

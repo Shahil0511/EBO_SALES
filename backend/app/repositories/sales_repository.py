@@ -41,8 +41,18 @@ BreakdownDimension = Literal[
 
 # Whitelisted sortable columns for the transactions table (never interpolate user sort).
 TransactionSortKey = Literal[
-    "date", "invoice", "product", "sku", "store", "category", "brand",
-    "qty", "mrp", "discount", "net", "salesperson",
+    "date",
+    "invoice",
+    "product",
+    "sku",
+    "store",
+    "category",
+    "brand",
+    "qty",
+    "mrp",
+    "discount",
+    "net",
+    "salesperson",
 ]
 _SORT_COLUMNS: dict[TransactionSortKey, InstrumentedAttribute[Any]] = {
     "date": OlabiSales.invoice_date,
@@ -284,9 +294,7 @@ class SalesRepository(BaseRepository):
         stmt = _apply_sales_filters(stmt, flt).group_by(bucket_expr).order_by(bucket_expr)
 
         rows = (await self.session.execute(stmt)).all()
-        return [
-            TrendPoint(bucket=r.bucket, net_revenue=r.net_revenue, units=r.units) for r in rows
-        ]
+        return [TrendPoint(bucket=r.bucket, net_revenue=r.net_revenue, units=r.units) for r in rows]
 
     async def revenue_by_dimension(
         self, flt: SalesFilter, dimension: BreakdownDimension
@@ -315,9 +323,7 @@ class SalesRepository(BaseRepository):
         stmt = stmt.group_by(label).order_by(net_sum.desc())
 
         rows = (await self.session.execute(stmt)).all()
-        return [
-            BreakdownRow(label=r.label, net_revenue=r.net_revenue, units=r.units) for r in rows
-        ]
+        return [BreakdownRow(label=r.label, net_revenue=r.net_revenue, units=r.units) for r in rows]
 
     async def product_ranking(
         self, flt: SalesFilter, rank_by: ProductRankBy, page: int, page_size: int
@@ -500,9 +506,7 @@ class SalesRepository(BaseRepository):
             hits.extend(SearchHit(kind=kind, value=v) for v in values if v)
         return hits
 
-    async def filter_options(
-        self, date_from: datetime, date_to: datetime
-    ) -> FilterOptionsResult:
+    async def filter_options(self, date_from: datetime, date_to: datetime) -> FilterOptionsResult:
         """Distinct selectable values for each dimension within the date window."""
         window = (OlabiSales.invoice_date >= date_from, OlabiSales.invoice_date < date_to)
 
@@ -517,10 +521,14 @@ class SalesRepository(BaseRepository):
 
         async def _distinct(column: InstrumentedAttribute[str | None]) -> list[str]:
             rows = (
-                await self.session.execute(
-                    select(distinct(column)).where(*window, column.isnot(None)).order_by(column)
+                (
+                    await self.session.execute(
+                        select(distinct(column)).where(*window, column.isnot(None)).order_by(column)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return [v for v in rows if v]
 
         return FilterOptionsResult(

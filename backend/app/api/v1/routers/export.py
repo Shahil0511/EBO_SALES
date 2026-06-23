@@ -23,8 +23,7 @@ async def export_transactions(
 ) -> StreamingResponse:
     """Stream the currently-filtered line items as a CSV download."""
     filename = (
-        f"libas_transactions_{filters.date_from.isoformat()}"
-        f"_{filters.date_to.isoformat()}.csv"
+        f"libas_transactions_{filters.date_from.isoformat()}_{filters.date_to.isoformat()}.csv"
     )
     return StreamingResponse(
         service.stream_transactions_csv(filters),

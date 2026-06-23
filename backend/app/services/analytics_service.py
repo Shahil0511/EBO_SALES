@@ -214,9 +214,7 @@ class AnalyticsService:
             date_from, date_to, tuple(filters.stores)
         )
         return SalespersonsResponse(
-            salespersons=[
-                SalespersonOption(code=r.code, name=r.name, count=r.count) for r in rows
-            ]
+            salespersons=[SalespersonOption(code=r.code, name=r.name, count=r.count) for r in rows]
         )
 
     async def stream_transactions_csv(self, filters: AnalyticsFilters) -> AsyncIterator[bytes]:
@@ -251,9 +249,22 @@ class AnalyticsService:
 # ── CSV streaming helpers ────────────────────────────────────────────────────
 _CSV_BOM = b"\xef\xbb\xbf"  # UTF-8 BOM → Excel opens the file as UTF-8, not cp1252
 _CSV_HEADER = [
-    "invoice_date", "invoice_no", "product_code", "sku", "store", "channel",
-    "category", "brand", "qty", "mrp", "discount", "net", "salesperson",
-    "customer", "mobile", "first_bill_date",
+    "invoice_date",
+    "invoice_no",
+    "product_code",
+    "sku",
+    "store",
+    "channel",
+    "category",
+    "brand",
+    "qty",
+    "mrp",
+    "discount",
+    "net",
+    "salesperson",
+    "customer",
+    "mobile",
+    "first_bill_date",
 ]
 
 

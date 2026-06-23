@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     db_host: str
     db_port: int = 5432
     db_user: str
-    db_password: SecretStr            # SecretStr keeps the password out of logs/repr
+    db_password: SecretStr  # SecretStr keeps the password out of logs/repr
     db_name: str
 
     # Connection-pool + safety knobs (tuned in M5). A statement timeout guarantees a
