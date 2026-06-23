@@ -24,12 +24,13 @@ function DeltaBadge({ pctChange }: { pctChange: number | null | undefined }) {
   const Icon = up ? ArrowUp : ArrowDown;
   return (
     <span
+      aria-label={`${up ? "Up" : "Down"} ${Math.abs(pctChange).toFixed(1)} percent vs previous period`}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium",
         up ? "bg-chart-3/15 text-chart-3" : "bg-destructive/15 text-destructive",
       )}
     >
-      <Icon className="size-3" />
+      <Icon className="size-3" aria-hidden />
       {Math.abs(pctChange).toFixed(1)}%
     </span>
   );

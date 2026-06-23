@@ -28,6 +28,7 @@ export function FilterGroup({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
         className="flex w-full items-center justify-between px-3 py-2.5 text-sm"
       >
         <span className="font-medium">{title}</span>

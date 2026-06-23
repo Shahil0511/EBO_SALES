@@ -2,25 +2,37 @@
 
 import { X } from "lucide-react";
 
+import { useFilterOptions } from "@/lib/api/hooks/use-filter-options";
+import { useSalespeople } from "@/lib/api/hooks/use-salespeople";
 import type { Filters } from "@/lib/filters";
 import { useFilters } from "@/lib/use-filters";
 
 type Chip = { id: string; label: string; onRemove: () => void };
-
 type MultiKey = "stores" | "brands" | "categories" | "channels" | "salespersons" | "products";
+
+const CHANNEL_LABELS: Record<string, string> = { BM: "Retail (BM)", EC: "E-commerce (EC)" };
 
 export function FilterChips() {
   const { filters, setFilters, resetFilters } = useFilters();
+  // Cached by TanStack Query (same keys as the rail) → no extra requests. Used to show
+  // human names instead of raw store/staff codes in the chips.
+  const { data: options } = useFilterOptions(filters);
+  const { data: staff } = useSalespeople(filters);
+
+  const storeNames = new Map((options?.stores ?? []).map((s) => [s.code, s.name ?? s.code]));
+  const staffNames = new Map((staff?.salespersons ?? []).map((s) => [s.code, s.name ?? s.code]));
+
   const chips: Chip[] = [];
 
-  const addMulti = (key: MultiKey, prefix: string) => {
+  const addMulti = (key: MultiKey, prefix: string, resolve?: (v: string) => string | undefined) => {
     const values = filters[key];
     if (values.length === 0) return;
+    const display = (v: string) => resolve?.(v) ?? v;
     if (values.length <= 3) {
       for (const v of values) {
         chips.push({
           id: `${key}-${v}`,
-          label: `${prefix}: ${v}`,
+          label: `${prefix}: ${display(v)}`,
           onRemove: () => setFilters({ [key]: values.filter((x) => x !== v) } as Partial<Filters>),
         });
       }
@@ -33,11 +45,11 @@ export function FilterChips() {
     }
   };
 
-  addMulti("stores", "Store");
+  addMulti("stores", "Store", (v) => storeNames.get(v));
   addMulti("brands", "Brand");
   addMulti("categories", "Category");
-  addMulti("channels", "Channel");
-  addMulti("salespersons", "Staff");
+  addMulti("channels", "Channel", (v) => CHANNEL_LABELS[v]);
+  addMulti("salespersons", "Staff", (v) => staffNames.get(v));
   addMulti("products", "Product");
 
   if (filters.qtyMin !== null || filters.qtyMax !== null) {
@@ -63,14 +75,14 @@ export function FilterChips() {
       {chips.map((c) => (
         <span
           key={c.id}
-          className="border-border bg-card inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
+          className="border-border bg-card inline-flex max-w-[16rem] items-center gap-1 rounded-full border px-2.5 py-1 text-xs"
         >
-          {c.label}
+          <span className="truncate">{c.label}</span>
           <button
             type="button"
             onClick={c.onRemove}
             aria-label={`Remove ${c.label}`}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground shrink-0"
           >
             <X className="size-3" />
           </button>

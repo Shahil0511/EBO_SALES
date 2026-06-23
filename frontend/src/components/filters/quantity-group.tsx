@@ -25,7 +25,9 @@ export function QuantityGroup({
       <div className="flex items-center gap-1.5">
         <input
           type="number"
+          aria-label="Minimum quantity"
           value={qtyMin ?? ""}
+          max={qtyMax ?? undefined}
           onChange={(e) => onChange({ qtyMin: toNum(e.target.value), qtyMax })}
           placeholder="Min"
           className={inputClass}
@@ -33,7 +35,9 @@ export function QuantityGroup({
         <span className="text-muted-foreground">–</span>
         <input
           type="number"
+          aria-label="Maximum quantity"
           value={qtyMax ?? ""}
+          min={qtyMin ?? undefined}
           onChange={(e) => onChange({ qtyMin, qtyMax: toNum(e.target.value) })}
           placeholder="Max"
           className={inputClass}

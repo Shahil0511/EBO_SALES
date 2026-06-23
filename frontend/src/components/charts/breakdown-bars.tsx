@@ -83,6 +83,7 @@ export function BreakdownBars({
                 {filterField ? (
                   <button
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => toggle(item.label)}
                     className="hover:bg-muted/60 block w-full cursor-pointer rounded-md p-1 text-left"
                   >

@@ -85,6 +85,8 @@ export function TrendChart({ className }: { className?: string }) {
           <div className="grid h-full place-items-center text-destructive">Failed to load trend</div>
         ) : isLoading ? (
           <div className="grid h-full place-items-center">Loading…</div>
+        ) : points.length === 0 ? (
+          <div className="grid h-full place-items-center">No data in this range</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
@@ -116,6 +118,7 @@ export function TrendChart({ className }: { className?: string }) {
                 stroke="var(--chart-1)"
                 strokeWidth={2}
                 fill="url(#trendGrad)"
+                dot={points.length === 1}
               />
             </AreaChart>
           </ResponsiveContainer>

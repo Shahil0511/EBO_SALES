@@ -61,7 +61,7 @@
   --secondary: #efe9e1;
   --secondary-foreground: #2b2420;
   --muted: #f0ebe3;
-  --muted-foreground: #897d71; /* warm gray */
+  --muted-foreground: #6f6457; /* warm gray (>=4.5:1 AA on cream) */
   --accent: #ece2d2; /* light gold tint */
   --accent-foreground: #7b2d43;
   --destructive: #b0492f; /* rust = returns / negative */
@@ -128,5 +128,11 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Visible keyboard focus for form controls that set `outline-none` (a11y). */
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply border-ring ring-ring/40 ring-2;
   }
 }

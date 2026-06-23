@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useProductDetail } from "@/lib/api/hooks/use-product-detail";
 import { inr, num } from "@/lib/format";
@@ -11,6 +11,15 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
   const { filters } = useFilters();
   const { data, isLoading, isError } = useProductDetail(filters, code);
   const [imgError, setImgError] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Reset the image-error flag when the viewed product changes, so a prior product's
+  // failed image doesn't hide a valid one (adjust-state-during-render).
+  const [prevCode, setPrevCode] = useState(code);
+  if (code !== prevCode) {
+    setPrevCode(code);
+    setImgError(false);
+  }
 
   useEffect(() => {
     if (!code) return;
@@ -18,7 +27,13 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Move focus into the dialog on open; restore it to the trigger on close.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      previouslyFocused?.focus();
+    };
   }, [code, onClose]);
 
   if (!code) return null;
@@ -42,6 +57,7 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
             {data && <p className="text-muted-foreground text-xs">{data.variantCount} variants</p>}
           </div>
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"

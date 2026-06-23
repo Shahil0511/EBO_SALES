@@ -4,6 +4,7 @@ import { BreakdownBars } from "@/components/charts/breakdown-bars";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { FilterChips } from "@/components/filters/filter-chips";
 import { FilterRail } from "@/components/filters/filter-rail";
+import { MobileFilters } from "@/components/filters/mobile-filters";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
 import { ProductGallery } from "@/components/products/product-gallery";
@@ -17,6 +18,7 @@ export default function DashboardPage() {
       <Suspense fallback={<div className="flex-1" />}>
         <div className="flex flex-1">
           <FilterRail />
+          <MobileFilters />
           <main className="flex-1 space-y-4 p-4 lg:p-6">
             <FilterChips />
             <KpiCards />

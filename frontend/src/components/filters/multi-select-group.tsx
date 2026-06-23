@@ -41,12 +41,17 @@ export function MultiSelectGroup({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label={`Search ${title.toLowerCase()}`}
           placeholder={`Search ${title.toLowerCase()}…`}
-          className="border-border bg-background mb-2 h-8 w-full rounded-md border px-2 text-sm focus:outline-none"
+          className="border-border bg-background mb-2 h-8 w-full rounded-md border px-2 text-sm outline-none"
         />
       )}
       <div className="text-muted-foreground mb-1.5 flex items-center justify-between text-xs">
-        <button type="button" className="hover:text-foreground" onClick={() => onChange(visible.map((o) => o.value))}>
+        <button
+          type="button"
+          className="hover:text-foreground"
+          onClick={() => onChange([...new Set([...selected, ...visible.map((o) => o.value)])])}
+        >
           Select all
         </button>
         <button type="button" className="hover:text-foreground" onClick={() => onChange([])}>

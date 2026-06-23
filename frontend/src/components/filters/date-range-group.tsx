@@ -68,17 +68,25 @@ export function DateRangeGroup({
       <div className="flex items-center gap-1.5">
         <input
           type="date"
+          aria-label="From date"
           value={dateFrom}
           max={dateTo}
-          onChange={(e) => onChange({ dateFrom: e.target.value, dateTo })}
+          onChange={(e) => {
+            const from = e.target.value;
+            onChange({ dateFrom: from, dateTo: from > dateTo ? from : dateTo });
+          }}
           className={inputClass}
         />
         <span className="text-muted-foreground text-xs">→</span>
         <input
           type="date"
+          aria-label="To date"
           value={dateTo}
           min={dateFrom}
-          onChange={(e) => onChange({ dateFrom, dateTo: e.target.value })}
+          onChange={(e) => {
+            const to = e.target.value;
+            onChange({ dateFrom: to < dateFrom ? to : dateFrom, dateTo: to });
+          }}
           className={inputClass}
         />
       </div>

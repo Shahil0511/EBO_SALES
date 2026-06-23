@@ -61,12 +61,12 @@ const COLUMNS: Column[] = [
     align: "right",
     cell: (r) => <span className={cn(r.qty < 0 && "text-destructive")}>{r.qty}</span>,
   },
-  { label: "MRP", sortKey: "mrp", align: "right", cell: (r) => num(r.mrp) },
+  { label: "MRP", sortKey: "mrp", align: "right", cell: (r) => inr(r.mrp) },
   {
     label: "Net",
     sortKey: "net",
     align: "right",
-    cell: (r) => <span className={cn(r.net < 0 && "text-destructive")}>{num(r.net)}</span>,
+    cell: (r) => <span className={cn(r.net < 0 && "text-destructive")}>{inr(r.net)}</span>,
   },
   { label: "Staff", sortKey: "salesperson", cell: (r) => r.salesperson },
   { label: "Customer", cell: (r) => r.customer },
@@ -130,6 +130,14 @@ export function TransactionsTable({ className }: { className?: string }) {
                 {COLUMNS.map((c) => (
                   <th
                     key={c.label}
+                    scope="col"
+                    aria-sort={
+                      c.sortKey && sortKey === c.sortKey
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : undefined
+                    }
                     className={cn("px-2 py-2 font-medium whitespace-nowrap", c.align === "right" && "text-right")}
                   >
                     {c.sortKey ? (
@@ -149,28 +157,36 @@ export function TransactionsTable({ className }: { className?: string }) {
               </tr>
             </thead>
             <tbody className={cn(isPlaceholderData && "opacity-60")}>
-              {isLoading
-                ? Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} className="border-border/60 border-b">
-                      {COLUMNS.map((c) => (
-                        <td key={c.label} className="px-2 py-2">
-                          <div className="bg-muted h-3 animate-pulse rounded" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                : rows.map((r, i) => (
-                    <tr key={`${r.invoiceNo}-${r.sku}-${i}`} className="border-border/60 hover:bg-muted/40 border-b">
-                      {COLUMNS.map((c) => (
-                        <td
-                          key={c.label}
-                          className={cn("max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap", c.align === "right" && "text-right")}
-                        >
-                          {c.cell(r)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i} className="border-border/60 border-b">
+                    {COLUMNS.map((c) => (
+                      <td key={c.label} className="px-2 py-2">
+                        <div className="bg-muted h-3 animate-pulse rounded" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="text-muted-foreground py-8 text-center">
+                    No transactions in this view.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, i) => (
+                  <tr key={`${r.invoiceNo}-${r.sku}-${i}`} className="border-border/60 hover:bg-muted/40 border-b">
+                    {COLUMNS.map((c) => (
+                      <td
+                        key={c.label}
+                        className={cn("max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap", c.align === "right" && "text-right")}
+                      >
+                        {c.cell(r)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

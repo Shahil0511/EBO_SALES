@@ -17,10 +17,10 @@ export function SiteHeader() {
           L
         </div>
         <div className="leading-tight">
-          <div className="font-heading text-base font-semibold">Libas</div>
-          <div className="text-muted-foreground text-[11px] tracking-wider uppercase">
+          <h1 className="font-heading text-base font-semibold">Libas</h1>
+          <p className="text-muted-foreground text-[11px] tracking-wider uppercase">
             Sales Intelligence
-          </div>
+          </p>
         </div>
       </div>
 
