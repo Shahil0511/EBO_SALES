@@ -11,3 +11,17 @@ import type { paths } from "@/lib/api/schema";
  * needs to know the API's real host, and there is no CORS.
  */
 export const api = createClient<paths>({ baseUrl: "" });
+
+/**
+ * Unwrap an openapi-fetch result for a React Query `queryFn`: return the typed `data`,
+ * or throw the `error` (so React Query enters its error state and the error UI renders).
+ * `T` is inferred from the call, so the hook's `data` stays fully typed.
+ */
+export async function unwrap<T>(request: Promise<{ data?: T; error?: unknown }>): Promise<T> {
+  const { data, error } = await request;
+  if (error !== undefined || data === undefined) {
+    throw error ?? new Error("Request failed");
+  }
+  return data;
+}
+
