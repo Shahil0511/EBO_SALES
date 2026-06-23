@@ -1,0 +1,155 @@
+"use client";
+
+import { useState } from "react";
+
+import { Skeleton } from "@/components/ui/skeleton";
+import { useStoreLeaderboard } from "@/lib/api/hooks/use-store-leaderboard";
+import { inr, num } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+type Row = {
+  storeCode: string;
+  storeName: string | null;
+  storeType: string | null;
+  region: string | null;
+  city: string | null;
+  mtdSale: number;
+  projectionSale: number;
+  billCnt: number;
+  qty: number;
+  atv: number;
+  asp: number;
+  basket: number;
+  discPct: number;
+  opDay: number;
+  wowBill: number;
+};
+
+type SortKey =
+  | "storeName"
+  | "mtdSale"
+  | "projectionSale"
+  | "billCnt"
+  | "qty"
+  | "atv"
+  | "asp"
+  | "basket"
+  | "discPct"
+  | "opDay"
+  | "wowBill";
+
+type Col = { key: SortKey; label: string; align?: "right"; render: (r: Row) => React.ReactNode };
+
+const COLS: Col[] = [
+  { key: "mtdSale", label: "MTD sale", align: "right", render: (r) => <span className="font-semibold">{inr(r.mtdSale)}</span> },
+  { key: "projectionSale", label: "Projection", align: "right", render: (r) => inr(r.projectionSale) },
+  { key: "billCnt", label: "Bills", align: "right", render: (r) => num(r.billCnt) },
+  { key: "qty", label: "Qty", align: "right", render: (r) => num(r.qty) },
+  { key: "atv", label: "ATV", align: "right", render: (r) => inr(r.atv) },
+  { key: "asp", label: "ASP", align: "right", render: (r) => inr(r.asp) },
+  { key: "basket", label: "Basket", align: "right", render: (r) => r.basket.toFixed(2) },
+  {
+    key: "discPct",
+    label: "Disc%",
+    align: "right",
+    render: (r) => <span className={cn(r.discPct >= 50 && "text-destructive")}>{r.discPct.toFixed(1)}%</span>,
+  },
+  { key: "opDay", label: "Days", align: "right", render: (r) => num(r.opDay) },
+  {
+    key: "wowBill",
+    label: "WoW bills",
+    align: "right",
+    render: (r) =>
+      r.wowBill === 0 ? (
+        <span className="text-muted-foreground">0</span>
+      ) : (
+        <span className={cn("font-medium", r.wowBill > 0 ? "text-chart-3" : "text-destructive")}>
+          {r.wowBill > 0 ? "▲" : "▼"} {Math.abs(r.wowBill)}
+        </span>
+      ),
+  },
+];
+
+function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) return null;
+  return <span>{dir === "asc" ? "▴" : "▾"}</span>;
+}
+
+export function StoreLeaderboard() {
+  const { data, isLoading, isError } = useStoreLeaderboard();
+  const [sortKey, setSortKey] = useState<SortKey>("mtdSale");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  if (isError) {
+    return <p className="text-destructive text-sm">Failed to load store performance.</p>;
+  }
+
+  const items = (data?.items ?? []) as Row[];
+  const sorted = [...items].sort((a, b) => {
+    const cmp =
+      sortKey === "storeName"
+        ? (a.storeName ?? "").localeCompare(b.storeName ?? "")
+        : (a[sortKey] as number) - (b[sortKey] as number);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const onSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "storeName" ? "asc" : "desc");
+    }
+  };
+
+  return (
+    <section className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
+      {isLoading ? (
+        <div className="space-y-2 p-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <Skeleton key={i} className="h-7" />
+          ))}
+        </div>
+      ) : (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-muted-foreground border-border bg-muted/30 border-b text-left">
+              <th scope="col" className="px-3 py-2.5 font-medium">
+                #
+              </th>
+              <th scope="col" className="px-3 py-2.5 font-medium">
+                <button type="button" onClick={() => onSort("storeName")} className="hover:text-foreground inline-flex items-center gap-0.5">
+                  Store <SortArrow active={sortKey === "storeName"} dir={sortDir} />
+                </button>
+              </th>
+              {COLS.map((c) => (
+                <th key={c.key} scope="col" className="px-3 py-2.5 text-right font-medium whitespace-nowrap">
+                  <button type="button" onClick={() => onSort(c.key)} className="hover:text-foreground inline-flex items-center gap-0.5">
+                    {c.label} <SortArrow active={sortKey === c.key} dir={sortDir} />
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r, i) => (
+              <tr key={r.storeCode} className="border-border/60 hover:bg-muted/40 border-b transition-colors">
+                <td className="text-muted-foreground px-3 py-2 font-mono">{i + 1}</td>
+                <td className="px-3 py-2">
+                  <div className="font-medium whitespace-nowrap">{r.storeName ?? r.storeCode}</div>
+                  <div className="text-muted-foreground text-[11px]">
+                    {[r.region, r.city, r.storeType].filter(Boolean).join(" · ")}
+                  </div>
+                </td>
+                {COLS.map((c) => (
+                  <td key={c.key} className="px-3 py-2 text-right font-mono whitespace-nowrap">
+                    {c.render(r)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}

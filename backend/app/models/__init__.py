@@ -8,5 +8,6 @@ from app.models.base import Base
 from app.models.ebo_store_master import EboStoreMaster
 from app.models.item_master import ItemMaster
 from app.models.olabi_sales import OlabiSales
+from app.models.store_performance import EgStoreDay
 
-__all__ = ["Base", "EboStoreMaster", "ItemMaster", "OlabiSales"]
+__all__ = ["Base", "EboStoreMaster", "EgStoreDay", "ItemMaster", "OlabiSales"]

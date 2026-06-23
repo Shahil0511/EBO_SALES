@@ -25,6 +25,15 @@ export function SiteHeader() {
         </div>
       </Link>
 
+      <nav className="hidden items-center gap-0.5 lg:flex">
+        <Link
+          href="/stores"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md px-2.5 py-1 text-sm transition-colors"
+        >
+          Stores
+        </Link>
+      </nav>
+
       <Suspense fallback={<div className="mx-auto hidden h-9 w-full max-w-md md:block" />}>
         <GlobalSearch />
       </Suspense>

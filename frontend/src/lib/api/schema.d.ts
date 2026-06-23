@@ -273,6 +273,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Store Leaderboard
+         * @description Every store's month-to-date KPIs (sale, projection, ATV/ASP/basket, discount%, WoW),
+         *     ranked by MTD sale.
+         */
+        get: operations["get_store_leaderboard_api_v1_stores_leaderboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -538,6 +559,70 @@ export interface components {
             query: string;
             /** Hits */
             hits: components["schemas"]["SearchHitOut"][];
+        };
+        /**
+         * StoreLeaderboardResponse
+         * @description Current-month store leaderboard, ranked by MTD sale.
+         */
+        StoreLeaderboardResponse: {
+            /** Items */
+            items: components["schemas"]["StoreMtdRow"][];
+        };
+        /**
+         * StoreMtdRow
+         * @description One store's month-to-date performance row for the leaderboard.
+         */
+        StoreMtdRow: {
+            /** Storecode */
+            storeCode: string;
+            /** Storename */
+            storeName: string | null;
+            /** Storetype */
+            storeType: string | null;
+            /** Region */
+            region: string | null;
+            /** State */
+            state: string | null;
+            /** City */
+            city: string | null;
+            /** Cluster */
+            cluster: string | null;
+            /** Storemanager */
+            storeManager: string | null;
+            /** Clustermanager */
+            clusterManager: string | null;
+            /** Areamanager */
+            areaManager: string | null;
+            /** Regionalmanager */
+            regionalManager: string | null;
+            /** Mtdsale */
+            mtdSale: number;
+            /** Grossmrp */
+            grossMrp: number;
+            /** Discpct */
+            discPct: number;
+            /** Billcnt */
+            billCnt: number;
+            /** Qty */
+            qty: number;
+            /** Returns */
+            returns: number;
+            /** Basket */
+            basket: number;
+            /** Atv */
+            atv: number;
+            /** Asp */
+            asp: number;
+            /** Opday */
+            opDay: number;
+            /** Avgsale */
+            avgSale: number;
+            /** Projectionsale */
+            projectionSale: number;
+            /** Wowbill */
+            wowBill: number;
+            /** Wowbillnsv */
+            wowBillNsv: number;
         };
         /** StoreOptionOut */
         StoreOptionOut: {
@@ -1194,6 +1279,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_store_leaderboard_api_v1_stores_leaderboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreLeaderboardResponse"];
                 };
             };
         };

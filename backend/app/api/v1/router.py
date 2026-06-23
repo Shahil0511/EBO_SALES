@@ -18,6 +18,7 @@ from app.api.v1.routers import (
     health,
     products,
     search,
+    stores,
     transactions,
 )
 
@@ -35,3 +36,4 @@ api_router.include_router(transactions.router)
 api_router.include_router(search.router)
 api_router.include_router(filters.router)
 api_router.include_router(export.router)
+api_router.include_router(stores.router)

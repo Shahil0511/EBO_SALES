@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.repositories.sales_repository import SalesRepository
+from app.repositories.store_repository import StoreRepository
 from app.services.analytics_service import AnalyticsService
+from app.services.store_service import StoreService
 
 
 def get_sales_repository(
@@ -31,3 +33,17 @@ def get_analytics_service(
 ) -> AnalyticsService:
     """Provide an AnalyticsService wired with its repository."""
     return AnalyticsService(repository)
+
+
+def get_store_repository(
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> StoreRepository:
+    """Provide a StoreRepository bound to the request's session."""
+    return StoreRepository(session)
+
+
+def get_store_service(
+    repository: Annotated[StoreRepository, Depends(get_store_repository)],
+) -> StoreService:
+    """Provide a StoreService wired with its repository."""
+    return StoreService(repository)
