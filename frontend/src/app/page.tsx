@@ -5,9 +5,9 @@ import { TrendChart } from "@/components/charts/trend-chart";
 import { FilterRail } from "@/components/filters/filter-rail";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ProductGallery } from "@/components/products/product-gallery";
 
 const PLACEHOLDERS = [
-  { title: "Product gallery", milestone: "F9", span: "lg:col-span-12", height: "h-72" },
   { title: "Transactions", milestone: "F10", span: "lg:col-span-12", height: "h-80" },
 ];
 
@@ -54,6 +54,8 @@ export default function DashboardPage() {
               />
               <BreakdownBars className="lg:col-span-6" dimension="region" title="Region" color="var(--chart-1)" />
             </div>
+
+            <ProductGallery />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               {PLACEHOLDERS.map((section) => (
