@@ -1,6 +1,6 @@
 "use client";
 
-import { m, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import { useState } from "react";
 import {
   Area,
@@ -15,10 +15,11 @@ import {
 } from "recharts";
 
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type TrendBucket, useTrend } from "@/lib/api/hooks/use-trend";
 import { inr, inrFull, num } from "@/lib/format";
-import { DURATION_MS, SPRING } from "@/lib/motion/tokens";
+import { DURATION_MS } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -67,44 +68,6 @@ const BUCKETS: { key: TrendBucket; label: string }[] = [
   { key: "day", label: "Day" },
   { key: "week", label: "Week" },
 ];
-
-/** A segmented control with a sliding `layoutId` pill. Generic over the option key. */
-function Segmented<T extends string>({
-  value,
-  onChange,
-  options,
-  layoutId,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { key: T; label: string }[];
-  layoutId: string;
-}) {
-  return (
-    <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          onClick={() => onChange(o.key)}
-          className={cn(
-            "relative rounded-md px-2.5 py-1 text-xs transition-colors",
-            value === o.key ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {value === o.key && (
-            <m.span
-              layoutId={layoutId}
-              className="bg-primary absolute inset-0 rounded-md"
-              transition={SPRING.layout}
-            />
-          )}
-          <span className="relative z-10">{o.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function TrendChart({ className }: { className?: string }) {
   const { filters } = useFilters();

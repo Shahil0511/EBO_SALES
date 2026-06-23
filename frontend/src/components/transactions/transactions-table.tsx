@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +10,7 @@ import {
   type TransactionSortKey,
   useTransactions,
 } from "@/lib/api/hooks/use-transactions";
+import { type Filters, serializeFilters } from "@/lib/filters";
 import { inr, num } from "@/lib/format";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
@@ -76,22 +78,33 @@ const COLUMNS: Column[] = [
 const NUMERIC: TransactionSortKey[] = ["date", "qty", "mrp", "discount", "net"];
 const PAGE_SIZES = [25, 50, 100];
 
-export function TransactionsTable({ className }: { className?: string }) {
+export function TransactionsTable({
+  className,
+  extraFilters,
+  title = "Transactions",
+}: {
+  className?: string;
+  extraFilters?: Partial<Filters>;
+  title?: string;
+}) {
   const { filters } = useFilters();
+  const router = useRouter();
+  // A caller (e.g. a metric page) can scope the table further — e.g. returns only.
+  const effective = extraFilters ? { ...filters, ...extraFilters } : filters;
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<TransactionSortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   // Reset to page 1 when sort or filters change (adjust-state-during-render).
-  const resetKey = `${sortKey}|${sortDir}|${pageSize}|${JSON.stringify(filters)}`;
+  const resetKey = `${sortKey}|${sortDir}|${pageSize}|${JSON.stringify(effective)}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
     setPage(1);
   }
 
-  const { data, isLoading, isError, isPlaceholderData } = useTransactions(filters, {
+  const { data, isLoading, isError, isPlaceholderData } = useTransactions(effective, {
     page,
     pageSize,
     sortKey,
@@ -100,6 +113,7 @@ export function TransactionsTable({ className }: { className?: string }) {
   const rows = (data?.items ?? []) as TxnRow[];
   const total = data?.total ?? 0;
   const pages = data?.pages ?? 0;
+  const qs = serializeFilters(filters).toString();
 
   const onSort = (key: TransactionSortKey) => {
     if (sortKey === key) {
@@ -113,7 +127,7 @@ export function TransactionsTable({ className }: { className?: string }) {
   return (
     <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-heading text-sm font-semibold">Transactions</h3>
+        <h3 className="font-heading text-sm font-semibold">{title}</h3>
         <p className="text-muted-foreground text-xs">
           <span className="text-foreground font-medium">{num(total)}</span> line items ·{" "}
           {data && <span className="text-foreground font-medium">{inr(data.items.reduce((s, r) => s + r.net, 0))}</span>}{" "}
@@ -175,18 +189,33 @@ export function TransactionsTable({ className }: { className?: string }) {
                   </td>
                 </tr>
               ) : (
-                rows.map((r, i) => (
-                  <tr key={`${r.invoiceNo}-${r.sku}-${i}`} className="border-border/60 hover:bg-muted/50 border-b transition-colors">
-                    {COLUMNS.map((c) => (
-                      <td
-                        key={c.label}
-                        className={cn("max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap", c.align === "right" && "text-right")}
-                      >
-                        {c.cell(r)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                rows.map((r, i) => {
+                  const href = r.invoiceNo
+                    ? `/invoices?no=${encodeURIComponent(r.invoiceNo)}&from=${r.invoiceDate.slice(0, 10)}&to=${r.invoiceDate.slice(0, 10)}&${qs}`
+                    : null;
+                  return (
+                    <tr
+                      key={`${r.invoiceNo}-${r.sku}-${i}`}
+                      onClick={href ? () => router.push(href) : undefined}
+                      className={cn(
+                        "border-border/60 hover:bg-muted/50 border-b transition-colors",
+                        href && "cursor-pointer",
+                      )}
+                    >
+                      {COLUMNS.map((c) => (
+                        <td
+                          key={c.label}
+                          className={cn(
+                            "max-w-[14rem] truncate px-2 py-1.5 whitespace-nowrap",
+                            c.align === "right" && "text-right",
+                          )}
+                        >
+                          {c.cell(r)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

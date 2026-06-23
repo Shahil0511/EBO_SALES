@@ -2,9 +2,11 @@
 
 import { Search, X } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import { useSearch } from "@/lib/api/hooks/use-search";
+import { serializeFilters } from "@/lib/filters";
 import { DURATION, EASE } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
@@ -16,6 +18,7 @@ const INPUT_CLASS =
 
 export function GlobalSearch() {
   const { filters, setFilters } = useFilters();
+  const router = useRouter();
   const [q, setQ] = useState(filters.search ?? "");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -41,6 +44,22 @@ export function GlobalSearch() {
     setActive(-1);
   };
 
+  // Product → product page, invoice → invoice page; sku hits filter the dashboard.
+  const select = (hit: { kind: string; value: string }) => {
+    if (hit.kind === "product" || hit.kind === "invoice") {
+      setOpen(false);
+      setActive(-1);
+      const qs = serializeFilters(filters).toString();
+      router.push(
+        hit.kind === "product"
+          ? `/products?code=${encodeURIComponent(hit.value)}&${qs}`
+          : `/invoices?no=${encodeURIComponent(hit.value)}&${qs}`,
+      );
+      return;
+    }
+    apply(hit.value);
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -54,7 +73,7 @@ export function GlobalSearch() {
       setActive(-1);
     } else if (e.key === "Enter" && active >= 0 && active < hits.length) {
       e.preventDefault();
-      apply(hits[active].value);
+      select(hits[active]);
     }
   };
 
@@ -115,7 +134,7 @@ export function GlobalSearch() {
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => apply(h.value)}
+                onClick={() => select(h)}
                 className={cn(
                   "flex w-full items-center justify-between px-3 py-1.5 text-left text-sm",
                   i === active ? "bg-muted" : "hover:bg-muted",

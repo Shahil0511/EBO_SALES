@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
 
 import { Providers } from "@/app/providers";
+import { AppShell } from "@/components/layout/app-shell";
 
 import "./globals.css";
 
@@ -32,7 +33,9 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground h-full overflow-hidden">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

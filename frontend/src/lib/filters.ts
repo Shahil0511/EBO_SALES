@@ -95,6 +95,25 @@ export function serializeFilters(f: Filters): URLSearchParams {
 }
 
 /**
+ * Every URL param this module owns. Params NOT in this list (m / code / no / from / to …)
+ * are route identity and must be preserved across filter changes — see use-filters.ts, so a
+ * detail page keeps its subject when the user adjusts the sidebar filters.
+ */
+export const FILTER_PARAM_KEYS: readonly string[] = [
+  "dateFrom",
+  "dateTo",
+  "stores",
+  "brands",
+  "categories",
+  "channels",
+  "salespersons",
+  "products",
+  "qtyMin",
+  "qtyMax",
+  "search",
+];
+
+/**
  * Filters → the query object passed to the typed API client
  * (`api.GET(..., { params: { query: toQueryParams(filters) } })`). Empty values become
  * `undefined`, which openapi-fetch omits from the request.

@@ -1,12 +1,15 @@
 "use client";
 
 import { ArrowDown, ArrowUp } from "lucide-react";
+import Link from "next/link";
 
+import { type MetricKey } from "@/lib/api/hooks/use-metric-detail";
 import { HoverLift } from "@/components/motion/hover-lift";
 import { RevealGroup, RevealItem } from "@/components/motion/reveal";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSummary } from "@/lib/api/hooks/use-summary";
+import { serializeFilters } from "@/lib/filters";
 import { inr, inrFull, num } from "@/lib/format";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
@@ -15,6 +18,7 @@ const GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-
 
 type CardSpec = {
   key: string;
+  metric: MetricKey;
   label: string;
   raw: number;
   format: (n: number) => string;
@@ -70,6 +74,7 @@ export function KpiCards() {
   const cards: CardSpec[] = [
     {
       key: "net",
+      metric: "net_revenue",
       label: "Net revenue",
       raw: data.netRevenue,
       format: inr,
@@ -77,32 +82,54 @@ export function KpiCards() {
       delta: data.netRevenueDelta?.pctChange,
       accent: true,
     },
-    { key: "gross", label: "Gross sales", raw: data.grossSales, format: inr, sub: `${num(data.unitsSold)} sold` },
+    {
+      key: "gross",
+      metric: "gross_sales",
+      label: "Gross sales",
+      raw: data.grossSales,
+      format: inr,
+      sub: `${num(data.unitsSold)} sold`,
+    },
     {
       key: "returns",
+      metric: "returns_value",
       label: "Returns",
       raw: data.returnsValue,
       format: inr,
       sub: `${num(data.unitsReturned)} units`,
       negative: true,
     },
-    { key: "invoices", label: "Invoices", raw: data.invoices, format: num, delta: data.invoicesDelta?.pctChange },
-    { key: "units", label: "Units sold", raw: data.unitsSold, format: num },
-    { key: "customers", label: "Customers", raw: data.customers, format: num },
-    { key: "discount", label: "Discount rate", raw: data.discountRate, format: pct },
+    {
+      key: "invoices",
+      metric: "invoices",
+      label: "Invoices",
+      raw: data.invoices,
+      format: num,
+      delta: data.invoicesDelta?.pctChange,
+    },
+    { key: "units", metric: "units_sold", label: "Units sold", raw: data.unitsSold, format: num },
+    { key: "customers", metric: "customers", label: "Customers", raw: data.customers, format: num },
+    { key: "discount", metric: "discount_rate", label: "Discount rate", raw: data.discountRate, format: pct },
   ];
+
+  const qs = serializeFilters(filters).toString();
 
   return (
     <RevealGroup className={GRID}>
       {cards.map((c) => (
         <RevealItem key={c.key}>
-          <HoverLift
-            className={cn(
-              "border-border bg-card flex h-full flex-col gap-1 rounded-xl border p-3.5",
-              c.accent && "ring-primary/30 ring-1",
-            )}
+          <Link
+            href={`/metrics?m=${c.metric}&${qs}`}
+            aria-label={`View ${c.label} details`}
+            className="block h-full"
           >
-            <span className="text-muted-foreground text-xs">{c.label}</span>
+            <HoverLift
+              className={cn(
+                "border-border bg-card flex h-full flex-col gap-1 rounded-xl border p-3.5",
+                c.accent && "ring-primary/30 ring-1",
+              )}
+            >
+              <span className="text-muted-foreground text-xs">{c.label}</span>
             <span
               title={c.title}
               className={cn(
@@ -116,7 +143,8 @@ export function KpiCards() {
               <DeltaBadge pctChange={c.delta} />
               {c.sub && <span className="text-muted-foreground text-[11px]">{c.sub}</span>}
             </div>
-          </HoverLift>
+            </HoverLift>
+          </Link>
         </RevealItem>
       ))}
     </RevealGroup>

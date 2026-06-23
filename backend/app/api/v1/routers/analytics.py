@@ -13,8 +13,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import get_analytics_service
+from app.repositories.sales_repository import MetricKey
 from app.schemas.analytics import SummaryResponse
 from app.schemas.filters import AnalyticsFilters
+from app.schemas.metrics import MetricDetailResponse
 from app.schemas.trends import TrendQuery, TrendResponse
 from app.services.analytics_service import AnalyticsService
 
@@ -41,3 +43,17 @@ async def get_trend(
     filters object passed to the service.
     """
     return await service.get_trend(query, query.bucket)
+
+
+@router.get("/metrics/{metric}", response_model=MetricDetailResponse)
+async def get_metric_detail(
+    metric: MetricKey,
+    filters: Annotated[AnalyticsFilters, Query()],
+    service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+) -> MetricDetailResponse:
+    """Full drill-down for one KPI: its value + delta, day trend, and dimension breakdowns.
+
+    `metric` is typed as the `MetricKey` Literal, so an unknown metric is rejected with 422
+    before any code runs (same self-validating pattern as `/breakdowns/{dimension}`).
+    """
+    return await service.get_metric_detail(filters, metric)

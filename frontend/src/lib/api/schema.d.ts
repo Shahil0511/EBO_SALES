@@ -70,6 +70,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/metrics/{metric}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Metric Detail
+         * @description Full drill-down for one KPI: its value + delta, day trend, and dimension breakdowns.
+         *
+         *     `metric` is typed as the `MetricKey` Literal, so an unknown metric is rejected with 422
+         *     before any code runs (same self-validating pattern as `/breakdowns/{dimension}`).
+         */
+        get: operations["get_metric_detail_api_v1_analytics_metrics__metric__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/breakdowns/{dimension}": {
         parameters: {
             query?: never;
@@ -142,6 +165,26 @@ export interface paths {
          * @description Filtered, sorted, paginated line items.
          */
         get: operations["list_transactions_api_v1_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transactions/invoice/{invoice_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invoice Detail
+         * @description Every line item of one invoice, scoped to a date window so chunks are pruned.
+         */
+        get: operations["get_invoice_detail_api_v1_transactions_invoice__invoice_no__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -277,6 +320,61 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * InvoiceDetailResponse
+         * @description A full invoice: header (store/channel/customer/date/totals) + its line items.
+         */
+        InvoiceDetailResponse: {
+            /** Invoiceno */
+            invoiceNo: string;
+            /**
+             * Date
+             * Format: date-time
+             */
+            date: string;
+            /** Store */
+            store: string | null;
+            /** Channel */
+            channel: string | null;
+            /** Customer */
+            customer: string | null;
+            /** Mobile */
+            mobile: string | null;
+            /** Salesperson */
+            salesperson: string | null;
+            /** Totalnet */
+            totalNet: number;
+            /** Totalqty */
+            totalQty: number;
+            /** Linecount */
+            lineCount: number;
+            /** Lines */
+            lines: components["schemas"]["InvoiceLine"][];
+        };
+        /**
+         * InvoiceLine
+         * @description One line item on the bill (the header carries the shared store/customer/date).
+         */
+        InvoiceLine: {
+            /** Productcode */
+            productCode: string | null;
+            /** Imageurl */
+            imageUrl?: string | null;
+            /** Sku */
+            sku: string | null;
+            /** Category */
+            category: string | null;
+            /** Brand */
+            brand: string | null;
+            /** Qty */
+            qty: number;
+            /** Mrp */
+            mrp: number;
+            /** Discount */
+            discount: number;
+            /** Net */
+            net: number;
+        };
+        /**
          * KpiDelta
          * @description Period-over-period change for one metric (vs the previous equal-length window).
          */
@@ -287,6 +385,64 @@ export interface components {
             previous?: number | null;
             /** Pctchange */
             pctChange?: number | null;
+        };
+        /**
+         * MetricBreakdownGroup
+         * @description This metric grouped by one dimension (store / category / brand / channel …).
+         */
+        MetricBreakdownGroup: {
+            /** Dimension */
+            dimension: string;
+            /** Items */
+            items: components["schemas"]["MetricBreakdownItem"][];
+        };
+        /**
+         * MetricBreakdownItem
+         * @description One dimension group's value for this metric, with its share of the dimension total
+         *     (share is meaningful only for additive metrics; the client hides it for percent units).
+         */
+        MetricBreakdownItem: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+            /** Share */
+            share: number;
+        };
+        /**
+         * MetricDetailResponse
+         * @description Everything a single metric's detail page needs.
+         */
+        MetricDetailResponse: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "currency" | "number" | "percent";
+            /** Value */
+            value: number;
+            delta?: components["schemas"]["KpiDelta"] | null;
+            /** Trend */
+            trend: components["schemas"]["MetricPointOut"][];
+            /** Breakdowns */
+            breakdowns: components["schemas"]["MetricBreakdownGroup"][];
+        };
+        /**
+         * MetricPointOut
+         * @description One time bucket of the metric (day granularity).
+         */
+        MetricPointOut: {
+            /**
+             * Bucket
+             * Format: date
+             */
+            bucket: string;
+            /** Value */
+            value: number;
         };
         /** Page[ProductCard] */
         Page_ProductCard_: {
@@ -623,6 +779,49 @@ export interface operations {
             };
         };
     };
+    get_metric_detail_api_v1_analytics_metrics__metric__get: {
+        parameters: {
+            query: {
+                dateFrom: string;
+                dateTo: string;
+                stores?: string[];
+                brands?: string[];
+                categories?: string[];
+                channels?: string[];
+                salespersons?: string[];
+                products?: string[];
+                qtyMin?: number | null;
+                qtyMax?: number | null;
+                search?: string | null;
+            };
+            header?: never;
+            path: {
+                metric: "net_revenue" | "gross_sales" | "returns_value" | "units_sold" | "invoices" | "customers" | "discount_rate";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_breakdown_api_v1_breakdowns__dimension__get: {
         parameters: {
             query: {
@@ -786,6 +985,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_TransactionRowOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invoice_detail_api_v1_transactions_invoice__invoice_no__get: {
+        parameters: {
+            query: {
+                dateFrom: string;
+                dateTo: string;
+            };
+            header?: never;
+            path: {
+                invoice_no: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDetailResponse"];
                 };
             };
             /** @description Validation Error */

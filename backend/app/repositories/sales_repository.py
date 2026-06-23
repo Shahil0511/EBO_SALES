@@ -39,6 +39,18 @@ BreakdownDimension = Literal[
     "store", "category", "brand", "channel", "salesperson", "region", "city", "cluster"
 ]
 
+# Drill-down metrics — one per KPI card. Each maps to an aggregate in `_measure_expr`, so a
+# metric's detail page (trend + breakdowns) is computed with the SAME formula as its KPI tile.
+MetricKey = Literal[
+    "net_revenue",
+    "gross_sales",
+    "returns_value",
+    "units_sold",
+    "invoices",
+    "customers",
+    "discount_rate",
+]
+
 # Whitelisted sortable columns for the transactions table (never interpolate user sort).
 TransactionSortKey = Literal[
     "date",
@@ -150,6 +162,26 @@ def _apply_sales_filters(stmt: Select[Any], flt: SalesFilter) -> Select[Any]:
     return stmt.where(*conditions)
 
 
+def _measure_expr(metric: MetricKey) -> ColumnElement[Any]:
+    """The SQL aggregate for one metric — the SAME definitions as `summary`, reused for
+    measure-aware trend and breakdowns so a metric's detail page matches its KPI tile.
+    `discount_rate` is a ratio (discount / mrp); the rest are additive sums or distinct counts."""
+    qty = OlabiSales.total_sales_qty
+    nett = cast(OlabiSales.nett_invoice_value, Numeric(14, 2))
+    disc = cast(OlabiSales.invoice_discount_value, Numeric(14, 2))
+    mrp = cast(OlabiSales.invoice_mrp_value, Numeric(14, 2))
+    measures: dict[MetricKey, ColumnElement[Any]] = {
+        "net_revenue": func.coalesce(func.sum(nett), 0),
+        "gross_sales": func.coalesce(func.sum(nett).filter(qty >= 0), 0),
+        "returns_value": func.coalesce(-func.sum(nett).filter(qty < 0), 0),
+        "units_sold": func.coalesce(func.sum(qty).filter(qty >= 0), 0),
+        "invoices": func.count(distinct(OlabiSales.invoice_no)),
+        "customers": func.count(distinct(OlabiSales.consumer_mobile)),
+        "discount_rate": func.coalesce(func.sum(disc) / func.nullif(func.sum(mrp), 0) * 100, 0),
+    }
+    return measures[metric]
+
+
 # ── Result dataclasses ───────────────────────────────────────────────────────
 @dataclass(frozen=True, slots=True)
 class SummaryRow:
@@ -176,6 +208,22 @@ class BreakdownRow:
     label: str | None
     net_revenue: Decimal
     units: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class MetricPoint:
+    """One time bucket of a single metric's value (additive sum, count, or rate%)."""
+
+    bucket: datetime
+    value: Decimal | int
+
+
+@dataclass(frozen=True, slots=True)
+class MetricGroup:
+    """One dimension group's value for a single metric."""
+
+    label: str | None
+    value: Decimal | int
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +288,49 @@ class TransactionRow:
     customer: str | None
     mobile: str | None
     first_bill_date: date | None
+
+
+# Shared line-item column list + Row→dataclass mapper (used by the invoice reader; the older
+# transactions/CSV readers keep their inline form to avoid churn on working code).
+_TXN_COLUMNS = (
+    OlabiSales.invoice_date,
+    OlabiSales.invoice_no,
+    OlabiSales.product_code,
+    OlabiSales.product_sku_code,
+    OlabiSales.invoice_associate_name,
+    OlabiSales.business_channel_code,
+    OlabiSales.category_name,
+    OlabiSales.brand_name,
+    OlabiSales.total_sales_qty,
+    OlabiSales.invoice_mrp_value,
+    OlabiSales.invoice_discount_value,
+    OlabiSales.nett_invoice_value,
+    OlabiSales.sales_person_name,
+    OlabiSales.consumer_name,
+    OlabiSales.consumer_mobile,
+    OlabiSales.consumer_first_bill_date,
+)
+
+
+def _to_transaction_row(r: Any) -> TransactionRow:
+    return TransactionRow(
+        invoice_date=r.invoice_date,
+        invoice_no=r.invoice_no,
+        product_code=r.product_code,
+        sku=r.product_sku_code,
+        store=r.invoice_associate_name,
+        channel=r.business_channel_code,
+        category=r.category_name,
+        brand=r.brand_name,
+        qty=r.total_sales_qty,
+        mrp=r.invoice_mrp_value,
+        discount=r.invoice_discount_value,
+        net=r.nett_invoice_value,
+        salesperson=r.sales_person_name,
+        customer=r.consumer_name,
+        mobile=r.consumer_mobile,
+        first_bill_date=r.consumer_first_bill_date,
+    )
 
 
 class SalesRepository(BaseRepository):
@@ -324,6 +415,43 @@ class SalesRepository(BaseRepository):
 
         rows = (await self.session.execute(stmt)).all()
         return [BreakdownRow(label=r.label, net_revenue=r.net_revenue, units=r.units) for r in rows]
+
+    async def metric_trend(
+        self, flt: SalesFilter, metric: MetricKey, bucket: TrendBucket
+    ) -> list[MetricPoint]:
+        """One metric's value per `day`/`week` bucket (for the KPI drill-down page)."""
+        measure = _measure_expr(metric)
+        bucket_expr = func.time_bucket(
+            text(f"interval '{_BUCKET_INTERVAL[bucket]}'"), OlabiSales.invoice_date
+        )
+        stmt = select(bucket_expr.label("bucket"), measure.label("value"))
+        stmt = _apply_sales_filters(stmt, flt).group_by(bucket_expr).order_by(bucket_expr)
+
+        rows = (await self.session.execute(stmt)).all()
+        return [MetricPoint(bucket=r.bucket, value=r.value) for r in rows]
+
+    async def metric_by_dimension(
+        self, flt: SalesFilter, metric: MetricKey, dimension: BreakdownDimension
+    ) -> list[MetricGroup]:
+        """One metric grouped by one dimension, ordered high→low (ALL groups)."""
+        spec = _DIMENSIONS[dimension]
+        label = spec.column
+        measure = _measure_expr(metric)
+
+        stmt = select(label.label("label"), measure.label("value")).select_from(OlabiSales)
+        if spec.needs_store_join:
+            stmt = stmt.join(
+                EboStoreMaster,
+                OlabiSales.invoice_associate_code == EboStoreMaster.store_code,
+                isouter=True,
+            )
+        stmt = _apply_sales_filters(stmt, flt)
+        if spec.exclude_blank:
+            stmt = stmt.where(label.isnot(None), label != "")
+        stmt = stmt.group_by(label).order_by(measure.desc())
+
+        rows = (await self.session.execute(stmt)).all()
+        return [MetricGroup(label=r.label, value=r.value) for r in rows]
 
     async def product_ranking(
         self, flt: SalesFilter, rank_by: ProductRankBy, page: int, page_size: int
@@ -481,6 +609,23 @@ class SalesRepository(BaseRepository):
             )
             for r in rows
         ], total
+
+    async def invoice_lines(
+        self, invoice_no: str, date_from: datetime, date_to: datetime
+    ) -> list[TransactionRow]:
+        """Every line item for one invoice, within the date window so TimescaleDB prunes
+        chunks (the caller passes the row's date, or the current filter range)."""
+        stmt = (
+            select(*_TXN_COLUMNS)
+            .where(
+                OlabiSales.invoice_no == invoice_no,
+                OlabiSales.invoice_date >= date_from,
+                OlabiSales.invoice_date < date_to,
+            )
+            .order_by(OlabiSales.product_code)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [_to_transaction_row(r) for r in rows]
 
     async def search(
         self, date_from: datetime, date_to: datetime, term: str, per_kind: int

@@ -1,4 +1,5 @@
 import { Download } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { ExportButton } from "@/components/export-button";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 export function SiteHeader() {
   return (
     <header className="border-border bg-background/85 z-30 flex h-14 shrink-0 items-center gap-4 border-b px-4 backdrop-blur-md">
-      <div className="flex items-center gap-2.5">
+      <Link href="/" className="flex items-center gap-2.5">
         <div className="bg-primary text-primary-foreground font-heading grid size-8 place-items-center rounded-md text-lg font-semibold">
           L
         </div>
@@ -22,7 +23,7 @@ export function SiteHeader() {
             Sales Intelligence
           </p>
         </div>
-      </div>
+      </Link>
 
       <Suspense fallback={<div className="mx-auto hidden h-9 w-full max-w-md md:block" />}>
         <GlobalSearch />

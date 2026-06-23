@@ -1,16 +1,15 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { m } from "motion/react";
 import { useState } from "react";
 
 import { Reveal } from "@/components/motion/reveal";
 import { ProductCard } from "@/components/products/product-card";
-import { ProductDetailModal } from "@/components/products/product-detail-modal";
+import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ProductRankBy, useProducts } from "@/lib/api/hooks/use-products";
+import { serializeFilters } from "@/lib/filters";
 import { num } from "@/lib/format";
-import { SPRING } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +24,6 @@ export function ProductGallery({ className }: { className?: string }) {
   const { filters } = useFilters();
   const [rankBy, setRankBy] = useState<ProductRankBy>("revenue");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<string | null>(null);
 
   // Reset to page 1 when the ranking or filters change — React's "adjust state during
   // render" pattern (re-renders immediately; avoids an effect that only calls setState).
@@ -45,6 +43,7 @@ export function ProductGallery({ className }: { className?: string }) {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const pages = data?.pages ?? 0;
+  const qs = serializeFilters(filters).toString();
 
   return (
     <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
@@ -53,28 +52,7 @@ export function ProductGallery({ className }: { className?: string }) {
           <h3 className="font-heading text-sm font-semibold">Products</h3>
           <p className="text-muted-foreground text-xs">{num(total)} with sales in range</p>
         </div>
-        <div className="bg-muted/60 flex gap-0.5 rounded-lg p-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setRankBy(t.key)}
-              className={cn(
-                "relative rounded-md px-2.5 py-1 text-xs transition-colors",
-                rankBy === t.key ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {rankBy === t.key && (
-                <m.span
-                  layoutId="productRank"
-                  className="bg-primary absolute inset-0 rounded-md"
-                  transition={SPRING.layout}
-                />
-              )}
-              <span className="relative z-10">{t.label}</span>
-            </button>
-          ))}
-        </div>
+        <Segmented value={rankBy} onChange={setRankBy} options={TABS} layoutId="productRank" />
       </div>
 
       {isError ? (
@@ -96,7 +74,11 @@ export function ProductGallery({ className }: { className?: string }) {
             )}
           >
             {items.map((p) => (
-              <ProductCard key={p.productCode} product={p} onSelect={setSelected} />
+              <ProductCard
+                key={p.productCode}
+                product={p}
+                href={`/products?code=${encodeURIComponent(p.productCode)}&${qs}`}
+              />
             ))}
           </div>
         </Reveal>
@@ -125,8 +107,6 @@ export function ProductGallery({ className }: { className?: string }) {
           </button>
         </div>
       )}
-
-      <ProductDetailModal code={selected} onClose={() => setSelected(null)} />
     </section>
   );
 }

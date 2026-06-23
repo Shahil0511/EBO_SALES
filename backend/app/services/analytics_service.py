@@ -15,6 +15,7 @@ from typing import Any
 from app.core.exceptions import NotFoundError
 from app.repositories.sales_repository import (
     BreakdownDimension,
+    MetricKey,
     SalesFilter,
     SalesRepository,
     SummaryRow,
@@ -29,6 +30,14 @@ from app.schemas.filters_options import (
     SalespersonOption,
     SalespersonsResponse,
     StoreOptionOut,
+)
+from app.schemas.invoices import InvoiceDetailResponse, InvoiceLine
+from app.schemas.metrics import (
+    MetricBreakdownGroup,
+    MetricBreakdownItem,
+    MetricDetailResponse,
+    MetricPointOut,
+    MetricUnit,
 )
 from app.schemas.products import ProductCard, ProductDetail, ProductQuery, VariantItem
 from app.schemas.search import SearchHitOut, SearchQuery, SearchResponse
@@ -94,6 +103,47 @@ class AnalyticsService:
             for r in rows[:limit]  # rows arrive already sorted high→low
         ]
         return BreakdownResponse(dimension=dimension, total_net_revenue=total, items=items)
+
+    async def get_metric_detail(
+        self, filters: AnalyticsFilters, metric: MetricKey
+    ) -> MetricDetailResponse:
+        """One KPI's full drill-down: value + delta (vs the previous equal window), the day
+        trend of that metric, and the metric sliced by store / category / brand / channel.
+        Value + delta reuse `summary`, so the page headline matches the KPI tile exactly."""
+        flt = _to_sales_filter(filters)
+        window = flt.date_to - flt.date_from
+        prev = replace(flt, date_from=flt.date_from - window, date_to=flt.date_from)
+
+        current = await self.repository.summary(flt)
+        previous = await self.repository.summary(prev)
+        value = _metric_value(current, metric)
+        delta = _delta(value, _metric_value(previous, metric))
+
+        trend = await self.repository.metric_trend(flt, metric, "day")
+
+        breakdowns: list[MetricBreakdownGroup] = []
+        for dimension in _METRIC_BREAKDOWN_DIMS:
+            rows = await self.repository.metric_by_dimension(flt, metric, dimension)
+            total = sum((float(r.value) for r in rows), 0.0)
+            items = [
+                MetricBreakdownItem(
+                    label=r.label if r.label else "Unknown",
+                    value=float(r.value),
+                    share=(float(r.value) / total * 100) if total else 0.0,
+                )
+                for r in rows[:8]  # already sorted high→low
+            ]
+            breakdowns.append(MetricBreakdownGroup(dimension=dimension, items=items))
+
+        return MetricDetailResponse(
+            metric=metric,
+            label=_METRIC_LABELS[metric],
+            unit=_METRIC_UNITS[metric],
+            value=value,
+            delta=delta,
+            trend=[MetricPointOut(bucket=p.bucket, value=float(p.value)) for p in trend],
+            breakdowns=breakdowns,
+        )
 
     async def get_products(self, query: ProductQuery) -> Page[ProductCard]:
         """One ranked, paginated page of products, each enriched with its image."""
@@ -185,6 +235,45 @@ class AnalyticsService:
             page=query.page,
             page_size=query.page_size,
             pages=_page_count(total, query.page_size),
+        )
+
+    async def get_invoice_detail(
+        self, invoice_no: str, date_from: date, date_to: date
+    ) -> InvoiceDetailResponse:
+        """One full invoice (bill): header + every line item, within the date window."""
+        start, end = _day_bounds(date_from, date_to)
+        rows = await self.repository.invoice_lines(invoice_no, start, end)
+        if not rows:
+            raise NotFoundError(f"Invoice '{invoice_no}' not found in this window")
+
+        head = rows[0]
+        codes = [r.product_code for r in rows if r.product_code]
+        images = await self.repository.product_images(codes)
+        return InvoiceDetailResponse(
+            invoice_no=invoice_no,
+            date=head.invoice_date,
+            store=head.store,
+            channel=head.channel,
+            customer=head.customer,
+            mobile=head.mobile,
+            salesperson=head.salesperson,
+            total_net=sum((float(r.net or 0.0) for r in rows), 0.0),
+            total_qty=sum((_to_units(r.qty) for r in rows), 0),
+            line_count=len(rows),
+            lines=[
+                InvoiceLine(
+                    product_code=r.product_code,
+                    image_url=images.get(r.product_code) if r.product_code else None,
+                    sku=r.sku,
+                    category=r.category,
+                    brand=r.brand,
+                    qty=_to_units(r.qty),
+                    mrp=float(r.mrp or 0.0),
+                    discount=float(r.discount or 0.0),
+                    net=float(r.net or 0.0),
+                )
+                for r in rows
+            ],
         )
 
     async def search(self, query: SearchQuery) -> SearchResponse:
@@ -313,6 +402,43 @@ def _discount_rate(row: SummaryRow) -> float:
     if row.mrp_value == 0:
         return 0.0
     return float(row.discount_value / row.mrp_value * 100)
+
+
+# ── metric drill-down helpers ────────────────────────────────────────────────
+_METRIC_LABELS: dict[MetricKey, str] = {
+    "net_revenue": "Net revenue",
+    "gross_sales": "Gross sales",
+    "returns_value": "Returns",
+    "units_sold": "Units sold",
+    "invoices": "Invoices",
+    "customers": "Customers",
+    "discount_rate": "Discount rate",
+}
+_METRIC_UNITS: dict[MetricKey, MetricUnit] = {
+    "net_revenue": "currency",
+    "gross_sales": "currency",
+    "returns_value": "currency",
+    "units_sold": "number",
+    "invoices": "number",
+    "customers": "number",
+    "discount_rate": "percent",
+}
+# The four primary dimensions every metric page is sliced by (mirrors the dashboard).
+_METRIC_BREAKDOWN_DIMS: tuple[BreakdownDimension, ...] = ("store", "category", "brand", "channel")
+
+
+def _metric_value(row: SummaryRow, metric: MetricKey) -> float:
+    """Pull one metric's scalar out of a summary row (same rounding as the KPI block)."""
+    values: dict[MetricKey, float] = {
+        "net_revenue": float(row.net_revenue),
+        "gross_sales": float(row.gross_sales),
+        "returns_value": float(row.returns_value),
+        "units_sold": float(_to_units(row.units_sold)),
+        "invoices": float(row.invoices),
+        "customers": float(row.customers),
+        "discount_rate": _discount_rate(row),
+    }
+    return values[metric]
 
 
 def _delta(current: float | int | Decimal, previous: float | int | Decimal) -> KpiDelta:
