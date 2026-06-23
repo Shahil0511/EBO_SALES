@@ -43,7 +43,7 @@ export function ProductGallery({ className }: { className?: string }) {
   const pages = data?.pages ?? 0;
 
   return (
-    <section className={cn("border-border bg-card flex flex-col rounded-xl border p-4", className)}>
+    <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-heading text-sm font-semibold">Products</h3>

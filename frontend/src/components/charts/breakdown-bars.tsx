@@ -41,7 +41,7 @@ export function BreakdownBars({
   };
 
   return (
-    <section className={cn("border-border bg-card flex flex-col rounded-xl border p-4", className)}>
+    <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <h3 className="font-heading mb-3 text-sm font-semibold">{title}</h3>
       {isError ? (
         <p className="text-destructive text-xs">Failed to load</p>

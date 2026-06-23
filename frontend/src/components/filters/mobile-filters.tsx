@@ -24,7 +24,7 @@ export function MobileFilters() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open filters"
-        className="bg-primary text-primary-foreground fixed right-4 bottom-4 z-30 grid size-12 place-items-center rounded-full shadow-lg"
+        className="bg-primary text-primary-foreground fixed right-4 bottom-4 z-30 grid size-12 place-items-center rounded-full shadow-lg transition-transform hover:scale-110"
       >
         <SlidersHorizontal className="size-5" />
       </button>

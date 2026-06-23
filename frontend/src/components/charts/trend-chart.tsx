@@ -56,7 +56,7 @@ export function TrendChart({ className }: { className?: string }) {
   const total = points.reduce((s, p) => s + p.netRevenue, 0);
 
   return (
-    <section className={cn("border-border bg-card flex flex-col rounded-xl border p-4", className)}>
+    <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <div className="mb-3 flex items-start justify-between">
         <div>
           <h3 className="font-heading text-sm font-semibold">Revenue trend</h3>

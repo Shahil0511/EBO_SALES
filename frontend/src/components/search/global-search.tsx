@@ -89,7 +89,7 @@ export function GlobalSearch() {
             type="button"
             onClick={() => apply(null)}
             aria-label="Clear search"
-            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-transform hover:scale-110"
           >
             <X className="size-4" />
           </button>

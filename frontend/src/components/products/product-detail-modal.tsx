@@ -60,7 +60,7 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground transition-transform hover:scale-110"
             aria-label="Close"
           >
             <X className="size-5" />

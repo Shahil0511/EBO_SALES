@@ -1,7 +1,9 @@
 "use client";
 
+import { m } from "motion/react";
 import { useState } from "react";
 
+import { liftHover, liftRest, liftTransition } from "@/components/motion/hover-lift";
 import { inr, num } from "@/lib/format";
 
 export type GalleryProduct = {
@@ -25,10 +27,13 @@ export function ProductCard({
   const showImage = product.imageUrl && !imgError;
 
   return (
-    <button
+    <m.button
       type="button"
       onClick={() => onSelect(product.productCode)}
-      className="border-border bg-card hover:ring-primary/30 group overflow-hidden rounded-xl border text-left hover:ring-1"
+      initial={liftRest}
+      whileHover={liftHover}
+      transition={liftTransition}
+      className="border-border bg-card group overflow-hidden rounded-xl border text-left"
     >
       <div className="bg-muted relative aspect-square overflow-hidden">
         {showImage ? (
@@ -62,6 +67,6 @@ export function ProductCard({
           <span className="text-muted-foreground text-[11px]">{num(product.units)} sold</span>
         </div>
       </div>
-    </button>
+    </m.button>
   );
 }

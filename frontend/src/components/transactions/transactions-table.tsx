@@ -110,7 +110,7 @@ export function TransactionsTable({ className }: { className?: string }) {
   };
 
   return (
-    <section className={cn("border-border bg-card flex flex-col rounded-xl border p-4", className)}>
+    <section className={cn("border-border bg-card shadow-card flex flex-col rounded-xl border p-4", className)}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-heading text-sm font-semibold">Transactions</h3>
         <p className="text-muted-foreground text-xs">
@@ -175,7 +175,7 @@ export function TransactionsTable({ className }: { className?: string }) {
                 </tr>
               ) : (
                 rows.map((r, i) => (
-                  <tr key={`${r.invoiceNo}-${r.sku}-${i}`} className="border-border/60 hover:bg-muted/40 border-b">
+                  <tr key={`${r.invoiceNo}-${r.sku}-${i}`} className="border-border/60 hover:bg-muted/50 border-b transition-colors">
                     {COLUMNS.map((c) => (
                       <td
                         key={c.label}

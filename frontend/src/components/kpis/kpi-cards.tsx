@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp } from "lucide-react";
 
+import { HoverLift } from "@/components/motion/hover-lift";
 import { useSummary } from "@/lib/api/hooks/use-summary";
 import { inr, inrFull, num } from "@/lib/format";
 import { useFilters } from "@/lib/use-filters";
@@ -80,7 +81,7 @@ export function KpiCards() {
             <div key={i} className="border-border bg-card h-24 animate-pulse rounded-xl border" />
           ))
         : cards.map((c) => (
-            <div
+            <HoverLift
               key={c.key}
               className={cn(
                 "border-border bg-card flex flex-col gap-1 rounded-xl border p-3.5",
@@ -101,7 +102,7 @@ export function KpiCards() {
                 <DeltaBadge pctChange={c.delta} />
                 {c.sub && <span className="text-muted-foreground text-[11px]">{c.sub}</span>}
               </div>
-            </div>
+            </HoverLift>
           ))}
     </div>
   );
