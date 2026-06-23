@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 import { Suspense } from "react";
 
+import { ExportButton } from "@/components/export-button";
 import { GlobalSearch } from "@/components/search/global-search";
 import { Button } from "@/components/ui/button";
 
@@ -28,12 +29,15 @@ export function SiteHeader() {
       </Suspense>
 
       <div className="ml-auto flex items-center gap-3">
-        <span className="border-border bg-card text-muted-foreground hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs sm:flex">
-          <span className="bg-chart-3 size-1.5 rounded-full" /> Loading…
-        </span>
-        <Button variant="outline" size="sm" disabled>
-          <Download className="size-4" /> Export
-        </Button>
+        <Suspense
+          fallback={
+            <Button variant="outline" size="sm" disabled>
+              <Download className="size-4" /> Export
+            </Button>
+          }
+        >
+          <ExportButton />
+        </Suspense>
       </div>
     </header>
   );

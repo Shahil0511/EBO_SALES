@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { BreakdownBars } from "@/components/charts/breakdown-bars";
 import { TrendChart } from "@/components/charts/trend-chart";
+import { FilterChips } from "@/components/filters/filter-chips";
 import { FilterRail } from "@/components/filters/filter-rail";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -17,6 +18,7 @@ export default function DashboardPage() {
         <div className="flex flex-1">
           <FilterRail />
           <main className="flex-1 space-y-4 p-4 lg:p-6">
+            <FilterChips />
             <KpiCards />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
