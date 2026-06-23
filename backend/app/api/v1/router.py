@@ -10,7 +10,16 @@ Navigability: Ctrl-click `health` below to jump to its route module; Ctrl-click
 
 from fastapi import APIRouter
 
-from app.api.v1.routers import analytics, breakdowns, health, products, transactions
+from app.api.v1.routers import (
+    analytics,
+    breakdowns,
+    export,
+    filters,
+    health,
+    products,
+    search,
+    transactions,
+)
 
 # The version prefix is set in exactly ONE place. Every included router inherits it,
 # so the health route becomes GET /api/v1/health and summary GET /api/v1/analytics/summary.
@@ -23,3 +32,6 @@ api_router.include_router(analytics.router)
 api_router.include_router(breakdowns.router)
 api_router.include_router(products.router)
 api_router.include_router(transactions.router)
+api_router.include_router(search.router)
+api_router.include_router(filters.router)
+api_router.include_router(export.router)

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ServiceUnavailableError
 from app.db.session import get_db
 
 router = APIRouter(tags=["system"])
@@ -18,10 +19,13 @@ router = APIRouter(tags=["system"])
 
 @router.get("/health")
 async def health(db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, str]:
-    """Readiness probe — 200 only if a round-trip to Postgres succeeds.
+    """Readiness probe — 200 only if a round-trip to Postgres succeeds, else a clean 503.
 
-    (If the DB is unreachable this raises and currently surfaces as 500; M15's
-    centralized error handling will turn that into a clean 503.)
+    The try/except here is justified: this is an infrastructure probe, not business logic,
+    and translating a DB outage into a 503 is exactly the endpoint's job.
     """
-    await db.execute(text("SELECT 1"))
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - probe maps ANY DB failure to 503
+        raise ServiceUnavailableError("Database is unreachable") from exc
     return {"status": "ok", "database": "reachable"}

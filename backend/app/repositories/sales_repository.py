@@ -15,6 +15,7 @@ Conventions (SPEC):
   * date bounds are datetimes, half-open [from, to).
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -31,6 +32,8 @@ TrendBucket = Literal["day", "week"]
 _BUCKET_INTERVAL: dict[TrendBucket, str] = {"day": "1 day", "week": "1 week"}
 
 ProductRankBy = Literal["revenue", "units", "returns"]
+
+SearchKind = Literal["product", "sku", "invoice"]
 
 BreakdownDimension = Literal[
     "store", "category", "brand", "channel", "salesperson", "region", "city", "cluster"
@@ -180,6 +183,33 @@ class VariantRow:
     sku: str
     net_revenue: Decimal
     units: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SearchHit:
+    kind: SearchKind
+    value: str
+
+
+@dataclass(frozen=True, slots=True)
+class StoreOption:
+    code: str
+    name: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class FilterOptionsResult:
+    stores: list[StoreOption]
+    brands: list[str]
+    categories: list[str]
+    channels: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class SalespersonCount:
+    code: str
+    name: str | None
+    count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -445,3 +475,131 @@ class SalesRepository(BaseRepository):
             )
             for r in rows
         ], total
+
+    async def search(
+        self, date_from: datetime, date_to: datetime, term: str, per_kind: int
+    ) -> list[SearchHit]:
+        """Typeahead: distinct product_code / sku / invoice_no matching `term`, within
+        the date window (chunk-pruned). Date-scoped only — it deliberately ignores the
+        other dimension filters so a code/invoice can always be found in the period."""
+        like = f"%{term}%"
+        window = (OlabiSales.invoice_date >= date_from, OlabiSales.invoice_date < date_to)
+        fields: list[tuple[InstrumentedAttribute[str | None], SearchKind]] = [
+            (OlabiSales.product_code, "product"),
+            (OlabiSales.product_sku_code, "sku"),
+            (OlabiSales.invoice_no, "invoice"),
+        ]
+        hits: list[SearchHit] = []
+        for column, kind in fields:
+            stmt = (
+                select(distinct(column))
+                .where(*window, column.isnot(None), column.ilike(like))
+                .limit(per_kind)
+            )
+            values = (await self.session.execute(stmt)).scalars().all()
+            hits.extend(SearchHit(kind=kind, value=v) for v in values if v)
+        return hits
+
+    async def filter_options(
+        self, date_from: datetime, date_to: datetime
+    ) -> FilterOptionsResult:
+        """Distinct selectable values for each dimension within the date window."""
+        window = (OlabiSales.invoice_date >= date_from, OlabiSales.invoice_date < date_to)
+
+        store_rows = (
+            await self.session.execute(
+                select(OlabiSales.invoice_associate_code, OlabiSales.invoice_associate_name)
+                .where(*window, OlabiSales.invoice_associate_code.isnot(None))
+                .distinct()
+                .order_by(OlabiSales.invoice_associate_name)
+            )
+        ).all()
+
+        async def _distinct(column: InstrumentedAttribute[str | None]) -> list[str]:
+            rows = (
+                await self.session.execute(
+                    select(distinct(column)).where(*window, column.isnot(None)).order_by(column)
+                )
+            ).scalars().all()
+            return [v for v in rows if v]
+
+        return FilterOptionsResult(
+            stores=[StoreOption(code=c, name=n) for c, n in store_rows if c],
+            brands=await _distinct(OlabiSales.brand_name),
+            categories=await _distinct(OlabiSales.category_name),
+            channels=await _distinct(OlabiSales.business_channel_code),
+        )
+
+    async def salespersons_for_stores(
+        self, date_from: datetime, date_to: datetime, stores: tuple[str, ...]
+    ) -> list[SalespersonCount]:
+        """Cascade: salespeople with sales in the selected store(s) (or all stores if
+        none), within the window, ordered by line-item count. Blank staff (EC) excluded,
+        so an EC-only store selection correctly yields an empty list."""
+        conditions: list[ColumnElement[bool]] = [
+            OlabiSales.invoice_date >= date_from,
+            OlabiSales.invoice_date < date_to,
+            OlabiSales.sales_person_code.isnot(None),
+            OlabiSales.sales_person_code != "",
+        ]
+        if stores:
+            conditions.append(OlabiSales.invoice_associate_code.in_(stores))
+
+        stmt = (
+            select(
+                OlabiSales.sales_person_code.label("code"),
+                func.max(OlabiSales.sales_person_name).label("name"),
+                # NOT ".label('count')" — `count` collides with Row.count() (tuple method),
+                # which shadows the column on attribute access. Use a distinct name.
+                func.count().label("line_count"),
+            )
+            .where(*conditions)
+            .group_by(OlabiSales.sales_person_code)
+            .order_by(func.count().desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [SalespersonCount(code=r.code, name=r.name, count=r.line_count) for r in rows]
+
+    async def stream_transactions(self, flt: SalesFilter) -> AsyncIterator[TransactionRow]:
+        """Stream ALL filtered line items (server-side cursor) for the CSV export, so a
+        large export never buffers the whole result set in memory."""
+        stmt = select(
+            OlabiSales.invoice_date,
+            OlabiSales.invoice_no,
+            OlabiSales.product_code,
+            OlabiSales.product_sku_code,
+            OlabiSales.invoice_associate_name,
+            OlabiSales.business_channel_code,
+            OlabiSales.category_name,
+            OlabiSales.brand_name,
+            OlabiSales.total_sales_qty,
+            OlabiSales.invoice_mrp_value,
+            OlabiSales.invoice_discount_value,
+            OlabiSales.nett_invoice_value,
+            OlabiSales.sales_person_name,
+            OlabiSales.consumer_name,
+            OlabiSales.consumer_mobile,
+            OlabiSales.consumer_first_bill_date,
+        )
+        stmt = _apply_sales_filters(stmt, flt).order_by(OlabiSales.invoice_date.desc())
+
+        result = await self.session.stream(stmt)
+        async for r in result:
+            yield TransactionRow(
+                invoice_date=r.invoice_date,
+                invoice_no=r.invoice_no,
+                product_code=r.product_code,
+                sku=r.product_sku_code,
+                store=r.invoice_associate_name,
+                channel=r.business_channel_code,
+                category=r.category_name,
+                brand=r.brand_name,
+                qty=r.total_sales_qty,
+                mrp=r.invoice_mrp_value,
+                discount=r.invoice_discount_value,
+                net=r.nett_invoice_value,
+                salesperson=r.sales_person_name,
+                customer=r.consumer_name,
+                mobile=r.consumer_mobile,
+                first_bill_date=r.consumer_first_bill_date,
+            )

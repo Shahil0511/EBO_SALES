@@ -6,10 +6,13 @@ It maps the Pydantic `AnalyticsFilters` (wire) into a `SalesFilter` (domain) via
 No SQL here; no HTTP here.
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
+from app.core.exceptions import NotFoundError
 from app.repositories.sales_repository import (
     BreakdownDimension,
     SalesFilter,
@@ -21,7 +24,14 @@ from app.schemas.analytics import KpiDelta, SummaryResponse
 from app.schemas.breakdowns import BreakdownItem, BreakdownResponse
 from app.schemas.common import Page
 from app.schemas.filters import AnalyticsFilters
+from app.schemas.filters_options import (
+    FilterOptionsResponse,
+    SalespersonOption,
+    SalespersonsResponse,
+    StoreOptionOut,
+)
 from app.schemas.products import ProductCard, ProductDetail, ProductQuery, VariantItem
+from app.schemas.search import SearchHitOut, SearchQuery, SearchResponse
 from app.schemas.transactions import TransactionRowOut, TransactionsQuery
 from app.schemas.trends import TrendPointOut, TrendResponse
 
@@ -123,11 +133,16 @@ class AnalyticsService:
         """
         flt = replace(_to_sales_filter(filters), products=())
         variants = await self.repository.product_variants(flt, product_code)
-        images = await self.repository.product_images([product_code])
+        image_url = (await self.repository.product_images([product_code])).get(product_code)
+
+        # An unknown code has neither sales nor an image → 404 (a code with an image but
+        # no sales in the window is valid and returns an empty-but-200 detail).
+        if not variants and image_url is None:
+            raise NotFoundError(f"Product '{product_code}' not found")
 
         return ProductDetail(
             product_code=product_code,
-            image_url=images.get(product_code),
+            image_url=image_url,
             variant_count=len(variants),
             net_revenue=sum((float(v.net_revenue) for v in variants), 0.0),
             units=sum((_to_units(v.units) for v in variants), 0),
@@ -171,6 +186,87 @@ class AnalyticsService:
             page_size=query.page_size,
             pages=_page_count(total, query.page_size),
         )
+
+    async def search(self, query: SearchQuery) -> SearchResponse:
+        """Typeahead hits (product/sku/invoice) within the date window."""
+        date_from, date_to = _day_bounds(query.date_from, query.date_to)
+        hits = await self.repository.search(date_from, date_to, query.q, query.limit)
+        return SearchResponse(
+            query=query.q,
+            hits=[SearchHitOut(kind=h.kind, value=h.value) for h in hits],
+        )
+
+    async def get_filter_options(self, filters: AnalyticsFilters) -> FilterOptionsResponse:
+        """Selectable dimension values in the window (stores/brands/categories/channels)."""
+        date_from, date_to = _day_bounds(filters.date_from, filters.date_to)
+        opts = await self.repository.filter_options(date_from, date_to)
+        return FilterOptionsResponse(
+            stores=[StoreOptionOut(code=s.code, name=s.name) for s in opts.stores],
+            brands=opts.brands,
+            categories=opts.categories,
+            channels=opts.channels,
+        )
+
+    async def get_salespersons(self, filters: AnalyticsFilters) -> SalespersonsResponse:
+        """Cascading staff list: salespeople with sales in the selected store(s)."""
+        date_from, date_to = _day_bounds(filters.date_from, filters.date_to)
+        rows = await self.repository.salespersons_for_stores(
+            date_from, date_to, tuple(filters.stores)
+        )
+        return SalespersonsResponse(
+            salespersons=[
+                SalespersonOption(code=r.code, name=r.name, count=r.count) for r in rows
+            ]
+        )
+
+    async def stream_transactions_csv(self, filters: AnalyticsFilters) -> AsyncIterator[bytes]:
+        """Yield the filtered line items as CSV bytes (UTF-8 + BOM so Excel reads it
+        correctly — recall the cp1252 lesson). Streamed row-by-row: constant memory."""
+        flt = _to_sales_filter(filters)
+        yield _CSV_BOM
+        yield _csv_line(_CSV_HEADER)
+        async for r in self.repository.stream_transactions(flt):
+            yield _csv_line(
+                [
+                    r.invoice_date.isoformat(sep=" ", timespec="minutes"),
+                    r.invoice_no,
+                    r.product_code,
+                    r.sku,
+                    r.store,
+                    r.channel,
+                    r.category,
+                    r.brand,
+                    _to_units(r.qty),
+                    r.mrp,
+                    r.discount,
+                    r.net,
+                    r.salesperson,
+                    r.customer,
+                    r.mobile,
+                    r.first_bill_date,
+                ]
+            )
+
+
+# ── CSV streaming helpers ────────────────────────────────────────────────────
+_CSV_BOM = b"\xef\xbb\xbf"  # UTF-8 BOM → Excel opens the file as UTF-8, not cp1252
+_CSV_HEADER = [
+    "invoice_date", "invoice_no", "product_code", "sku", "store", "channel",
+    "category", "brand", "qty", "mrp", "discount", "net", "salesperson",
+    "customer", "mobile", "first_bill_date",
+]
+
+
+def _csv_cell(value: Any) -> str:
+    """RFC-4180 cell: quote when the value contains a comma, quote, or newline."""
+    text = "" if value is None else str(value)
+    if any(ch in text for ch in (",", '"', "\n", "\r")):
+        text = '"' + text.replace('"', '""') + '"'
+    return text
+
+
+def _csv_line(values: list[Any]) -> bytes:
+    return (",".join(_csv_cell(v) for v in values) + "\r\n").encode("utf-8")
 
 
 # ── pure helpers (unit-tested in M16) ────────────────────────────────────────
