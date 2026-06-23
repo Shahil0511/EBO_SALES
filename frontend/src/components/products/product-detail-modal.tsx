@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useProductDetail } from "@/lib/api/hooks/use-product-detail";
 import { inr, num } from "@/lib/format";
 import { useFilters } from "@/lib/use-filters";
@@ -70,7 +71,7 @@ export function ProductDetailModal({ code, onClose }: { code: string | null; onC
         {isError ? (
           <p className="text-destructive text-sm">Product not found in this window.</p>
         ) : isLoading || !data ? (
-          <div className="bg-muted h-40 animate-pulse rounded-lg" />
+          <Skeleton className="h-40 rounded-lg" />
         ) : (
           <div className="space-y-4">
             <div className="flex gap-4">

@@ -1,10 +1,14 @@
 "use client";
 
+import { useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { AnimatedNumber } from "@/components/ui/animated-number";
+import { Skeleton } from "@/components/ui/skeleton";
 import { type TrendBucket, useTrend } from "@/lib/api/hooks/use-trend";
 import { inr, inrFull, num } from "@/lib/format";
+import { DURATION_MS } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +50,10 @@ function ChartTooltip(props: {
 export function TrendChart({ className }: { className?: string }) {
   const { filters } = useFilters();
   const [bucket, setBucket] = useState<TrendBucket>("day");
+  const reduce = useReducedMotion();
+  // Draw the area ONCE (on first load). Re-running the full draw on every filter tweak is
+  // distracting; onAnimationEnd flips this off so later data updates just snap.
+  const [hasAnimated, setHasAnimated] = useState(false);
   const { data, isLoading, isError } = useTrend(filters, bucket);
 
   const points = (data?.points ?? []).map((p) => ({
@@ -60,7 +68,9 @@ export function TrendChart({ className }: { className?: string }) {
       <div className="mb-3 flex items-start justify-between">
         <div>
           <h3 className="font-heading text-sm font-semibold">Revenue trend</h3>
-          <p className="text-muted-foreground text-xs">{inr(total)} net</p>
+          <p className="text-muted-foreground text-xs">
+            <AnimatedNumber value={total} format={inr} /> net
+          </p>
         </div>
         <div className="flex gap-1">
           {(["day", "week"] as const).map((b) => (
@@ -84,7 +94,7 @@ export function TrendChart({ className }: { className?: string }) {
         {isError ? (
           <div className="grid h-full place-items-center text-destructive">Failed to load trend</div>
         ) : isLoading ? (
-          <div className="grid h-full place-items-center">Loading…</div>
+          <Skeleton className="size-full rounded-lg" />
         ) : points.length === 0 ? (
           <div className="grid h-full place-items-center">No data in this range</div>
         ) : (
@@ -119,6 +129,11 @@ export function TrendChart({ className }: { className?: string }) {
                 strokeWidth={2}
                 fill="url(#trendGrad)"
                 dot={points.length === 1}
+                isAnimationActive={!reduce && !hasAnimated}
+                animationDuration={DURATION_MS.chart}
+                animationEasing="ease-out"
+                animationBegin={80}
+                onAnimationEnd={() => setHasAnimated(true)}
               />
             </AreaChart>
           </ResponsiveContainer>

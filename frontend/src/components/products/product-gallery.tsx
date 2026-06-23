@@ -3,9 +3,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
-import { type ProductRankBy, useProducts } from "@/lib/api/hooks/use-products";
+import { Reveal } from "@/components/motion/reveal";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductDetailModal } from "@/components/products/product-detail-modal";
+import { Skeleton } from "@/components/ui/skeleton";
+import { type ProductRankBy, useProducts } from "@/lib/api/hooks/use-products";
 import { num } from "@/lib/format";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
@@ -73,22 +75,24 @@ export function ProductGallery({ className }: { className?: string }) {
       ) : isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <div key={i} className="border-border bg-muted aspect-[3/4] animate-pulse rounded-xl border" />
+            <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center text-sm">No products in this view.</p>
       ) : (
-        <div
-          className={cn(
-            "grid grid-cols-2 gap-3 transition-opacity sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6",
-            isPlaceholderData && "opacity-60",
-          )}
-        >
-          {items.map((p) => (
-            <ProductCard key={p.productCode} product={p} onSelect={setSelected} />
-          ))}
-        </div>
+        <Reveal>
+          <div
+            className={cn(
+              "grid grid-cols-2 gap-3 transition-opacity sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6",
+              isPlaceholderData && "opacity-60",
+            )}
+          >
+            {items.map((p) => (
+              <ProductCard key={p.productCode} product={p} onSelect={setSelected} />
+            ))}
+          </div>
+        </Reveal>
       )}
 
       {pages > 1 && (

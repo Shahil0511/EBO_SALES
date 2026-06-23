@@ -7,6 +7,7 @@ import { FilterRail } from "@/components/filters/filter-rail";
 import { MobileFilters } from "@/components/filters/mobile-filters";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
+import { Reveal } from "@/components/motion/reveal";
 import { ProductGallery } from "@/components/products/product-gallery";
 import { TransactionsTable } from "@/components/transactions/transactions-table";
 
@@ -58,7 +59,9 @@ export default function DashboardPage() {
 
             <ProductGallery />
 
-            <TransactionsTable />
+            <Reveal>
+              <TransactionsTable />
+            </Reveal>
           </main>
         </div>
       </Suspense>

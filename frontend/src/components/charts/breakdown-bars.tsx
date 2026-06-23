@@ -1,7 +1,11 @@
 "use client";
 
+import { m, useReducedMotion } from "motion/react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 import { type BreakdownDimension, useBreakdown } from "@/lib/api/hooks/use-breakdown";
 import { inr } from "@/lib/format";
+import { EASE } from "@/lib/motion/tokens";
 import { useFilters } from "@/lib/use-filters";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +28,7 @@ export function BreakdownBars({
   className?: string;
 }) {
   const { filters, setFilters } = useFilters();
+  const reduce = useReducedMotion();
   const { data, isLoading, isError } = useBreakdown(filters, dimension, 8);
 
   const items = data?.items ?? [];
@@ -48,15 +53,16 @@ export function BreakdownBars({
       ) : isLoading ? (
         <div className="space-y-2.5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-muted h-6 animate-pulse rounded" />
+            <Skeleton key={i} className="h-6" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <p className="text-muted-foreground text-xs">No data in range</p>
       ) : (
         <ul className="space-y-2">
-          {items.map((item) => {
+          {items.map((item, i) => {
             const isSelected = selected.includes(item.label);
+            const width = `${(Math.abs(item.netRevenue) / max) * 100}%`;
             const bar = (
               <>
                 <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
@@ -71,9 +77,12 @@ export function BreakdownBars({
                   </span>
                 </div>
                 <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                  <div
+                  <m.div
                     className="h-full rounded-full"
-                    style={{ width: `${(Math.abs(item.netRevenue) / max) * 100}%`, background: color }}
+                    style={{ background: color }}
+                    initial={reduce ? false : { width: 0 }}
+                    animate={{ width }}
+                    transition={reduce ? { duration: 0 } : { duration: 0.5, ease: EASE.out, delay: i * 0.03 }}
                   />
                 </div>
               </>

@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type SortDir,
   type TransactionSortKey,
@@ -162,7 +163,7 @@ export function TransactionsTable({ className }: { className?: string }) {
                   <tr key={i} className="border-border/60 border-b">
                     {COLUMNS.map((c) => (
                       <td key={c.label} className="px-2 py-2">
-                        <div className="bg-muted h-3 animate-pulse rounded" />
+                        <Skeleton className="h-3" />
                       </td>
                     ))}
                   </tr>
