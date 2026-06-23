@@ -83,6 +83,15 @@
   --sidebar-accent-foreground: #7b2d43;
   --sidebar-border: #e6dfd4;
   --sidebar-ring: #7b2d43;
+  /* motion tokens — mirror of src/lib/motion/tokens.ts, for the few pure-CSS transitions
+     (use as ease-[var(--ease-standard)] / duration-[var(--dur-micro)] in className). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --dur-micro: 140ms;
+  --dur-state: 200ms;
+  --dur-overlay: 240ms;
+  --dur-layout: 300ms;
 }
 
 .dark {
@@ -134,5 +143,41 @@
   select:focus-visible,
   textarea:focus-visible {
     @apply border-ring ring-ring/40 ring-2;
+  }
+}
+
+/* ── Skeleton shimmer (replaces animate-pulse) — warm-ink highlight, GPU-friendly ── */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    color-mix(in oklch, var(--muted), var(--foreground) 6%) 37%,
+    var(--muted) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* ── Global reduced-motion guard: neutralize CSS animation/transition for users who opt out.
+   (MotionConfig handles Framer's JS-driven motion separately.) ── */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
