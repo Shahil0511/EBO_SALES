@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 
+import { BreakdownBars } from "@/components/charts/breakdown-bars";
+import { TrendChart } from "@/components/charts/trend-chart";
 import { FilterRail } from "@/components/filters/filter-rail";
 import { KpiCards } from "@/components/kpis/kpi-cards";
 import { SiteHeader } from "@/components/layout/site-header";
 
-// Sections still to be wired (F8–F10). KPIs (F7) are now live.
 const PLACEHOLDERS = [
-  { title: "Revenue trend", milestone: "F8", span: "lg:col-span-8", height: "h-64" },
-  { title: "Category · Brand · Channel", milestone: "F8", span: "lg:col-span-4", height: "h-64" },
   { title: "Product gallery", milestone: "F9", span: "lg:col-span-12", height: "h-72" },
   { title: "Transactions", milestone: "F10", span: "lg:col-span-12", height: "h-80" },
 ];
@@ -16,12 +15,46 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader />
-      {/* One Suspense boundary: the rail + every section read filters from the URL (useSearchParams). */}
+      {/* One Suspense boundary: the rail + every section read filters from the URL. */}
       <Suspense fallback={<div className="flex-1" />}>
         <div className="flex flex-1">
           <FilterRail />
-          <main className="flex-1 space-y-5 p-4 lg:p-6">
+          <main className="flex-1 space-y-4 p-4 lg:p-6">
             <KpiCards />
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <TrendChart className="lg:col-span-8" />
+              <BreakdownBars
+                className="lg:col-span-4"
+                dimension="category"
+                title="Category"
+                color="var(--chart-2)"
+                filterField="categories"
+              />
+              <BreakdownBars className="lg:col-span-4" dimension="store" title="Store" color="var(--chart-1)" />
+              <BreakdownBars
+                className="lg:col-span-4"
+                dimension="brand"
+                title="Brand"
+                color="var(--chart-3)"
+                filterField="brands"
+              />
+              <BreakdownBars
+                className="lg:col-span-4"
+                dimension="channel"
+                title="Channel"
+                color="var(--chart-4)"
+                filterField="channels"
+              />
+              <BreakdownBars
+                className="lg:col-span-6"
+                dimension="salesperson"
+                title="Sales staff"
+                color="var(--chart-5)"
+              />
+              <BreakdownBars className="lg:col-span-6" dimension="region" title="Region" color="var(--chart-1)" />
+            </div>
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               {PLACEHOLDERS.map((section) => (
                 <section
